@@ -17,7 +17,7 @@ export const money = (value) => new Intl.NumberFormat('en-PH', {
 
 export const number = (value) => new Intl.NumberFormat('en-PH').format(Number(value || 0))
 
-export const pct = (value) => value == null ? '—' : `${Number(value).toFixed(2)}%`
+export const pct = (value) => value == null || Number.isNaN(Number(value)) ? '—' : `${Number(value).toFixed(2)}%`
 
 export const shortDate = (value) => {
   if (!value) return '—'
@@ -229,18 +229,45 @@ export async function uploadQuickBooks(parsed, onProgress = () => {}) {
 
 export function buildRemarks(report) {
   if (!report || !Number(report.transaction_count)) return ['No transactions were recorded for this month. Upload the corresponding QuickBooks export before closing the month.']
+
   const remarks = []
   const revenue = Number(report.revenue || 0)
   const cost = Number(report.total_cost || 0)
-  const margin = Number(report.margin_pct || 0)
+  const grossProfit = Number(report.gross_profit || 0)
+  const margin = report.margin_pct == null ? null : Number(report.margin_pct)
   const overhead = Number(report.overhead || 0)
+  const other = Number(report.other_cost || 0)
   const unassigned = Number(report.unassigned_count || 0)
-  if (unassigned > 0) remarks.push(`${unassigned} transaction${unassigned === 1 ? '' : 's'} are not assigned to an SOF. Add or correct the SOF reference before finalizing the report.`)
-  if (revenue > 0 && margin < 15) remarks.push(`Gross margin is ${margin.toFixed(1)}%, below the 15% review threshold. Check high-cost SOFs and confirm all billable revenue was posted.`)
-  if (revenue > 0 && overhead / revenue > 0.15) remarks.push(`Overhead is ${(overhead / revenue * 100).toFixed(1)}% of revenue. Review travel, accommodation, logistics, and miscellaneous costs for reduction opportunities.`)
-  if (revenue <= 0 && cost > 0) remarks.push('Costs were posted without matching revenue for the month. Confirm billing timing and whether unbilled work should be accrued or explained.')
-  if (Number(report.gross_profit || 0) < 0) remarks.push('The month is showing a negative gross profit. Prioritize transaction classification checks and SOF-level cost overruns before month-end sign-off.')
-  if (!remarks.length) remarks.push('No major exception was detected. Continue reconciling SOF assignments, supporting documents, and month-end cut-off dates before closing.')
+  const topAccounts = Array.isArray(report.top_cost_accounts) ? report.top_cost_accounts : []
+
+  if (unassigned > 0) {
+    remarks.push(`${number(unassigned)} transaction${unassigned === 1 ? '' : 's'} ${unassigned === 1 ? 'is' : 'are'} not assigned to an SOF. Correct the SOF mapping before month-end sign-off.`)
+  }
+
+  if (grossProfit < 0) {
+    const costRatio = revenue > 0 ? cost / revenue * 100 : null
+    remarks.push(`Gross loss is ${money(Math.abs(grossProfit))}${costRatio == null ? '' : `; total cost is ${costRatio.toFixed(1)}% of revenue`}. Review the highest-cost SOFs before closing the month.`)
+  } else if (revenue > 0 && margin != null && margin < 15) {
+    remarks.push(`Gross margin is ${margin.toFixed(1)}%, below the 15% review threshold. Confirm billing completeness and investigate high-cost SOFs.`)
+  }
+
+  if (other > 0 && cost > 0 && other / cost >= 0.10) {
+    const top = topAccounts.slice(0, 3).map(x => `${cleanText(x.account) || 'Unspecified'} ${money(x.net_cost)}`).join(', ')
+    remarks.push(`Other / unmapped costs are ${money(other)} (${(other / cost * 100).toFixed(1)}% of total cost). Review account classification${top ? `, especially ${top}` : ''}.`)
+  }
+
+  if (revenue > 0 && overhead / revenue > 0.15) {
+    remarks.push(`Overhead is ${(overhead / revenue * 100).toFixed(1)}% of revenue. Review travel, accommodation, logistics, and miscellaneous expenses for valid project allocation.`)
+  }
+
+  if (revenue <= 0 && cost > 0) {
+    remarks.push(`Costs of ${money(cost)} were posted without matching revenue. Confirm billing timing and document any legitimate unbilled work.`)
+  }
+
+  if (!remarks.length) {
+    remarks.push('No major exception was detected. Reconcile SOF assignments, supporting documents, and month-end cut-off dates before closing.')
+  }
+
   return remarks
 }
 
