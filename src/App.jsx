@@ -7,6 +7,19 @@ const pageNow = () => { const p = (location.hash || '#/dashboard').replace(/^#\/
 const go = (p) => { location.hash = `#/${p}` }
 const cleanRemark = (value) => String(value || '').replace(/\s+/g, ' ').trim()
 const compactMoney = (value) => new Intl.NumberFormat('en-PH', { notation: 'compact', maximumFractionDigits: 1 }).format(Number(value || 0))
+const monthLabel = (value) => {
+  if (!value) return 'Selected month'
+  const [y, m] = String(value).split('-').map(Number)
+  if (!y || !m) return value
+  return new Date(y, m - 1, 1).toLocaleDateString('en-PH', { month: 'long', year: 'numeric' })
+}
+const monthBounds = (value) => {
+  const [y, m] = String(value || '').split('-').map(Number)
+  if (!y || !m) return { start: null, end: null }
+  const start = `${y}-${String(m).padStart(2, '0')}-01`
+  const end = new Date(Date.UTC(y, m, 1)).toISOString().slice(0, 10)
+  return { start, end }
+}
 const sofBaseNumber = (row) => {
   const raw = row?.sof_base ?? row?.sof_key ?? row?.sof_number ?? row?.sof_label ?? ''
   const match = String(raw).match(/\d+/)
@@ -35,8 +48,8 @@ const referenceBases = (row) => {
 }
 const sum = (a, b) => Number(a || 0) + Number(b || 0)
 
-function Card({ children, className = '' }) {
-  return <div className={`min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>{children}</div>
+function Card({ children, className = '', style }) {
+  return <div style={style} className={`min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm ${className}`}>{children}</div>
 }
 function Button({ children, secondary = false, className = '', ...p }) {
   return <button {...p} className={`${secondary ? 'border border-slate-300 bg-white text-slate-700' : 'bg-slate-900 text-white'} rounded-lg px-3.5 py-2 text-sm font-medium disabled:opacity-50 ${className}`}>{children}</button>
@@ -44,11 +57,28 @@ function Button({ children, secondary = false, className = '', ...p }) {
 function Header({ title, sub, actions }) {
   return <div className="mb-5 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
     <div className="min-w-0"><h1 className="text-2xl font-semibold text-slate-950">{title}</h1><p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">{sub}</p></div>
-    {actions && <div className="no-print flex max-w-full flex-wrap items-center gap-2">{actions}</div>}
+    {actions && <div className="no-print flex max-w-full flex-wrap items-end gap-2">{actions}</div>}
   </div>
 }
-function Stat({ label, value, note }) {
-  return <Card className="p-4"><div className="text-xs uppercase tracking-wide text-slate-500">{label}</div><div className="mt-2 break-words text-xl font-semibold sm:text-2xl">{value}</div>{note && <div className="mt-1 text-xs text-slate-500">{note}</div>}</Card>
+const STAT_TONES = {
+  emerald: { accent: '#10b981', soft: '#ecfdf5', text: '#047857', border: '#d1fae5' },
+  rose: { accent: '#ef4444', soft: '#fff1f2', text: '#be123c', border: '#ffe4e6' },
+  amber: { accent: '#f59e0b', soft: '#fffbeb', text: '#b45309', border: '#fef3c7' },
+  indigo: { accent: '#6366f1', soft: '#eef2ff', text: '#4f46e5', border: '#e0e7ff' },
+  cyan: { accent: '#06b6d4', soft: '#ecfeff', text: '#0e7490', border: '#cffafe' },
+  slate: { accent: '#64748b', soft: '#f8fafc', text: '#475569', border: '#e2e8f0' },
+}
+function Stat({ label, value, note, tone = 'slate' }) {
+  const t = STAT_TONES[tone] || STAT_TONES.slate
+  return <Card className="relative p-4" style={{ borderColor: t.border }}>
+    <div className="absolute inset-x-0 top-0 h-1" style={{ background: t.accent }} />
+    <div className="flex items-center gap-2">
+      <span className="inline-grid h-6 w-6 place-items-center rounded-md" style={{ background: t.soft }}><span className="h-2.5 w-2.5 rounded-full" style={{ background: t.accent }} /></span>
+      <div className="text-xs uppercase tracking-wide text-slate-500">{label}</div>
+    </div>
+    <div className="mt-2 break-words text-xl font-semibold sm:text-2xl" style={{ color: t.text }}>{value}</div>
+    {note && <div className="mt-1 text-xs text-slate-500">{note}</div>}
+  </Card>
 }
 function ErrorBox({ v }) { return v ? <div className="mb-4 break-words rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{v}</div> : null }
 function Pager({ page, total, setPage }) {
@@ -75,6 +105,12 @@ function SearchInput({ value, onChange, placeholder = 'Search SOF…' }) {
     <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">⌕</span>
     <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm" />
     {value && <button type="button" aria-label="Clear search" onClick={() => onChange('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">×</button>}
+  </label>
+}
+function MonthPicker({ value, onChange, label = 'Review month' }) {
+  return <label className="block">
+    <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">{label}</span>
+    <input type="month" value={value} onChange={e => onChange(e.target.value)} className="min-w-[154px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" />
   </label>
 }
 
@@ -167,7 +203,7 @@ function expandedRemarks(report, sofRows = []) {
   return remarks.slice(0, 8)
 }
 
-function CostMixChart({ report }) {
+function CostMixChart({ report, periodLabel = 'Selected month' }) {
   const parts = [
     { label: 'Materials', value: Number(report?.materials || 0), color: '#5b6cf9' },
     { label: 'Labor', value: Number(report?.labor || 0), color: '#23b7a4' },
@@ -182,7 +218,7 @@ function CostMixChart({ report }) {
     return `${x.color} ${start}% ${cursor}%`
   }).join(', ')
   return <Card className="p-5">
-    <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">Cost composition</h2><p className="mt-1 text-xs text-slate-500">Latest month · classified project costs</p></div><span className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-500">{money(total)}</span></div>
+    <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">Cost composition</h2><p className="mt-1 text-xs text-slate-500">{periodLabel} · classified project costs</p></div><span className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-500">{money(total)}</span></div>
     <div className="mt-5 grid items-center gap-5 sm:grid-cols-[180px_1fr]">
       <div className="relative mx-auto h-40 w-40 rounded-full" style={{ background: total ? `conic-gradient(${stops})` : '#eef1f5' }}>
         <div className="absolute inset-[22px] grid place-items-center rounded-full bg-white text-center"><div><div className="text-[11px] uppercase tracking-wide text-slate-400">Total cost</div><div className="mt-1 text-lg font-semibold text-slate-800">₱{compactMoney(total)}</div></div></div>
@@ -195,11 +231,11 @@ function CostMixChart({ report }) {
   </Card>
 }
 
-function TopSofChart({ rows }) {
+function TopSofChart({ rows, periodLabel = 'Selected month' }) {
   const data = [...(rows || [])].filter(x => Number(x.total_cost || 0) > 0 || Number(x.revenue || 0) > 0).sort((a, b) => Number(b.total_cost || 0) - Number(a.total_cost || 0)).slice(0, 6)
   const max = Math.max(1, ...data.flatMap(x => [Number(x.total_cost || 0), Number(x.revenue || 0)]))
   return <Card className="p-5">
-    <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">Highest exposure SOFs</h2><p className="mt-1 text-xs text-slate-500">Cost vs revenue · latest month</p></div><button onClick={() => go('sof')} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">Open SOF analysis →</button></div>
+    <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">Highest exposure SOFs</h2><p className="mt-1 text-xs text-slate-500">Cost vs revenue · {periodLabel}</p></div><button onClick={() => go('sof')} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">Open SOF analysis →</button></div>
     <div className="mt-5 space-y-4">
       {data.map(x => <div key={x.sof_key || x.sof_label}>
         <div className="mb-1.5 flex items-center justify-between gap-3 text-xs"><span className="font-semibold text-slate-700">{displaySof(x)}</span><span className="text-slate-400">Cost {money(x.total_cost)}</span></div>
@@ -224,30 +260,36 @@ function RemarksPanel({ report, sofRows, title = 'Management remarks' }) {
 
 function Dashboard() {
   const latest = useLatest()
+  const [month, setMonth] = useState(monthInput())
   const [r, setR] = useState(null)
   const [tx, setTx] = useState([])
   const [sofRows, setSofRows] = useState([])
   const [err, setErr] = useState('')
+  useEffect(() => { if (latest?.report_date) setMonth(latest.report_date.slice(0, 7)) }, [latest])
   useEffect(() => {
-    if (!latest) return
-    const month = latest.report_date.slice(0, 7) + '-01'
+    if (!month) return
+    const { start, end } = monthBounds(month)
+    if (!start || !end) return
+    setR(null); setTx([]); setSofRows([])
     Promise.all([
-      supabase.rpc('income_monthly_report', { p_month: month }),
-      supabase.from('income_transactions_ready').select('*').order('transaction_date', { ascending: false }).limit(10),
-      supabase.rpc('income_monthly_sof_summary', { p_month: month }),
+      supabase.rpc('income_monthly_report', { p_month: start }),
+      supabase.from('income_transactions_ready').select('*').gte('transaction_date', start).lt('transaction_date', end).order('transaction_date', { ascending: false }).limit(10),
+      supabase.rpc('income_monthly_sof_summary', { p_month: start }),
     ]).then(([a, b, c]) => {
       if (a.error || b.error || c.error) setErr(a.error?.message || b.error?.message || c.error?.message)
       else { setR(a.data); setTx(b.data || []); setSofRows([...(c.data || [])].sort(compareSof)); setErr('') }
     })
-  }, [latest])
+  }, [month])
+  const period = monthLabel(month)
+  const grossTone = Number(r?.gross_profit || 0) < 0 ? 'rose' : 'emerald'
   return <>
-    <Header title="Dashboard" sub="Latest month-end position with visual cost exposure, SOF concentration, and management review remarks." actions={<Button onClick={() => go('upload')}>Upload QB file</Button>} />
+    <Header title="Dashboard" sub={`${period} financial position with visual cost exposure, SOF concentration, and management review remarks.`} actions={<><MonthPicker value={month} onChange={setMonth} /><Button onClick={() => go('upload')}>Upload QB file</Button></>} />
     <ErrorBox v={err} />
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Stat label="Revenue" value={money(r?.revenue)} /><Stat label="Total Cost" value={money(r?.total_cost)} /><Stat label="Gross Profit" value={money(r?.gross_profit)} note={`Margin ${pct(r?.margin_pct)}`} /><Stat label="Active SOFs" value={number(r?.unique_sof)} note={`${number(r?.unassigned_count)} unassigned`} /></div>
-    <div className="mt-5 grid min-w-0 gap-5 xl:grid-cols-2"><CostMixChart report={r} /><TopSofChart rows={sofRows} /></div>
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Stat label="Revenue" value={money(r?.revenue)} tone="emerald" /><Stat label="Total Cost" value={money(r?.total_cost)} tone="amber" /><Stat label="Gross Profit" value={money(r?.gross_profit)} note={`Margin ${pct(r?.margin_pct)}`} tone={grossTone} /><Stat label="Active SOFs" value={number(r?.unique_sof)} note={`${number(r?.unassigned_count)} unassigned`} tone="indigo" /></div>
+    <div className="mt-5 grid min-w-0 gap-5 xl:grid-cols-2"><CostMixChart report={r} periodLabel={period} /><TopSofChart rows={sofRows} periodLabel={period} /></div>
     <div className="mt-5 grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_440px]">
-      <Card><div className="border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-semibold">Latest transactions</h2><p className="mt-1 text-xs text-slate-500">Most recent QuickBooks activity</p></div><Table minWidth={620} heads={['Date','SOF','Type','Account','Debit / Credit']} rows={tx} row={x => <tr key={x.id}><td className="px-3 py-3 whitespace-nowrap">{shortDate(x.transaction_date)}</td><td className="px-3 py-3 font-medium">{displaySof(x)}</td><td className="px-3 py-3 break-words">{x.type}</td><td className="px-3 py-3 break-words">{x.account || '—'}</td><td className="px-3 py-3 whitespace-nowrap"><div>Dr {money(x.debit)}</div><div className="text-xs text-slate-500">Cr {money(x.credit)}</div></td></tr>} /></Card>
-      <RemarksPanel report={r} sofRows={sofRows} />
+      <Card><div className="border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-semibold">{period} transactions</h2><p className="mt-1 text-xs text-slate-500">Most recent QuickBooks activity within the selected month</p></div><Table minWidth={620} heads={['Date','SOF','Type','Account','Debit / Credit']} rows={tx} row={x => <tr key={x.id}><td className="px-3 py-3 whitespace-nowrap">{shortDate(x.transaction_date)}</td><td className="px-3 py-3 font-medium">{displaySof(x)}</td><td className="px-3 py-3 break-words">{x.type}</td><td className="px-3 py-3 break-words">{x.account || '—'}</td><td className="px-3 py-3 whitespace-nowrap"><div>Dr {money(x.debit)}</div><div className="text-xs text-slate-500">Cr {money(x.credit)}</div></td></tr>} /></Card>
+      <RemarksPanel report={r} sofRows={sofRows} title={`${period} management remarks`} />
     </div>
   </>
 }
@@ -296,13 +338,14 @@ function Monthly() {
   }, [rows, search])
   useEffect(() => setPage(0), [search])
   const data = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
+  const grossTone = Number(r?.gross_profit || 0) < 0 ? 'rose' : 'emerald'
   return <>
-    <Header title="Monthly Report" sub="End-of-month financial report. Search an SOF or review the month in numeric SOF order." actions={<><SearchInput value={search} onChange={setSearch} placeholder="Search SOF…" /><input type="month" value={month} onChange={e => setMonth(e.target.value)} className="max-w-full rounded-lg border px-3 py-2" /><Button secondary onClick={() => window.print()}>Print / PDF</Button></>} />
+    <Header title="Monthly Report" sub="End-of-month financial report. Search an SOF or review the month in numeric SOF order." actions={<><SearchInput value={search} onChange={setSearch} placeholder="Search SOF…" /><MonthPicker value={month} onChange={setMonth} label="Report month" /><Button secondary onClick={() => window.print()}>Print / PDF</Button></>} />
     <ErrorBox v={err} />
-    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><Stat label="Revenue" value={money(r?.revenue)} /><Stat label="Materials" value={money(r?.materials)} /><Stat label="Labor" value={money(r?.labor)} /><Stat label="Overhead" value={money(r?.overhead)} /><Stat label="Gross Profit" value={money(r?.gross_profit)} note={`Margin ${pct(r?.margin_pct)}`} /></div>
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><Stat label="Revenue" value={money(r?.revenue)} tone="emerald" /><Stat label="Materials" value={money(r?.materials)} tone="indigo" /><Stat label="Labor" value={money(r?.labor)} tone="cyan" /><Stat label="Overhead" value={money(r?.overhead)} tone="amber" /><Stat label="Gross Profit" value={money(r?.gross_profit)} note={`Margin ${pct(r?.margin_pct)}`} tone={grossTone} /></div>
     <div className="mt-5 grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_440px]">
       <Card><Table minWidth={680} heads={['SOF','Tx','Revenue','Total Cost','Gross Profit','Margin']} rows={data} row={x => <tr key={x.sof_key}><td className="px-3 py-3 font-medium">{displaySof(x)}</td><td className="px-3 py-3">{number(x.transaction_count)}</td><td className="px-3 py-3 whitespace-nowrap">{money(x.revenue)}</td><td className="px-3 py-3"><CostCell row={x} /></td><td className="px-3 py-3 whitespace-nowrap">{money(x.gross_profit)}</td><td className="px-3 py-3 whitespace-nowrap">{pct(x.margin_pct)}</td></tr>} /><Pager page={page} total={filtered.length} setPage={setPage} /></Card>
-      <RemarksPanel report={r} sofRows={rows} title="Monthly review remarks" />
+      <RemarksPanel report={r} sofRows={rows} title={`${monthLabel(month)} review remarks`} />
     </div>
   </>
 }
