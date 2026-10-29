@@ -80,6 +80,7 @@ The repository contains the isolated IncomeReport database migrations under `sup
 - `20261029_income_report.sql` — base IncomeReport tables, views, reporting functions, and RLS.
 - `20261029_source_archive.sql` — source migration/archive tables and source lineage columns.
 - `20261029_secure_public_upload.sql` — validated login-free QB upload RPCs and browser permissions.
+- `20261029_harden_source_archive.sql` — explicit browser denial and supporting archive indexes.
 
 These migrations are designed around the `income_*` namespace and do not modify the existing RFP application tables.
 
