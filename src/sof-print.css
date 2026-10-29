@@ -1,0 +1,186 @@
+.sof-print-actions {
+  position: fixed;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.55rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
+  backdrop-filter: blur(10px);
+}
+
+.sof-print-actions button {
+  min-height: 2.5rem;
+  border-radius: 0.55rem;
+  padding: 0.55rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+}
+
+.sof-print-actions button:hover {
+  transform: translateY(-1px);
+}
+
+.sof-print-actions .sof-print-button {
+  border: 1px solid #d8dee8;
+  background: #fff;
+  color: #475569;
+}
+
+.sof-print-actions .sof-pdf-button {
+  border: 1px solid #4f46e5;
+  background: #5b6cf9;
+  color: #fff;
+  box-shadow: 0 3px 8px rgba(91, 108, 249, 0.22);
+}
+
+@page {
+  size: A4 landscape;
+  margin: 8mm;
+}
+
+@media print {
+  body.printing-sof {
+    margin: 0 !important;
+    background: #fff !important;
+  }
+
+  body.printing-sof *,
+  body.printing-sof *::before,
+  body.printing-sof *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  body.printing-sof .sof-print-actions,
+  body.printing-sof header,
+  body.printing-sof aside {
+    display: none !important;
+  }
+
+  body.printing-sof #root,
+  body.printing-sof #root > div:last-child {
+    width: auto !important;
+    max-width: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  body.printing-sof main {
+    box-sizing: border-box !important;
+    width: 281mm !important;
+    max-width: 281mm !important;
+    min-height: 194mm !important;
+    margin: 0 auto !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  /* Hide the screen-only title, SOF selector, and controls. */
+  body.printing-sof main > div:first-child {
+    display: none !important;
+  }
+
+  /* Project information header. */
+  body.printing-sof main > section:first-of-type {
+    break-inside: avoid;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+
+  body.printing-sof main > section:first-of-type > div:first-child {
+    padding: 3mm 4mm !important;
+  }
+
+  body.printing-sof main > section:first-of-type > div:nth-child(2) {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 2mm 6mm !important;
+    padding: 3mm 4mm !important;
+  }
+
+  body.printing-sof main > section:first-of-type > div:nth-child(2) > div {
+    gap: 1.2mm !important;
+  }
+
+  /* Financial summary heading. */
+  body.printing-sof main > div:nth-child(3) {
+    margin: 3mm 0 2mm !important;
+    font-size: 11pt !important;
+    line-height: 1.15 !important;
+  }
+
+  /* Keep all four comparison blocks across one A4 landscape row. */
+  body.printing-sof main > div:nth-child(4) {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 2.5mm !important;
+    break-inside: avoid;
+  }
+
+  body.printing-sof main > div:nth-child(4) section {
+    min-width: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  body.printing-sof main > div:nth-child(4) section > div:first-child {
+    min-height: 12mm !important;
+    padding: 2mm !important;
+  }
+
+  body.printing-sof main > div:nth-child(4) section > div:first-child > div:first-child {
+    font-size: 8.5pt !important;
+    line-height: 1.15 !important;
+  }
+
+  body.printing-sof main > div:nth-child(4) section > div:nth-child(2) {
+    font-size: 6.8pt !important;
+    line-height: 1.1 !important;
+  }
+
+  body.printing-sof main > div:nth-child(4) section > div:last-child > div {
+    min-height: 13mm !important;
+    font-size: 7.5pt !important;
+    line-height: 1.15 !important;
+  }
+
+  body.printing-sof main > div:nth-child(4) section > div:last-child > div > div {
+    padding: 2mm !important;
+  }
+
+  /* Remarks and quick-view footer. */
+  body.printing-sof main > div:nth-child(5) {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) 68mm !important;
+    gap: 3mm !important;
+    margin-top: 3mm !important;
+    break-inside: avoid;
+  }
+
+  body.printing-sof main > div:nth-child(5) section {
+    padding: 3mm !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    break-inside: avoid;
+  }
+
+  body.printing-sof main > div:nth-child(5) h3 {
+    font-size: 8pt !important;
+  }
+
+  body.printing-sof main > div:nth-child(5) p,
+  body.printing-sof main > div:nth-child(5) .text-sm {
+    font-size: 7.5pt !important;
+    line-height: 1.35 !important;
+  }
+}
