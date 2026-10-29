@@ -1,0 +1,4 @@
+/* Remove the sidebar source/status box from the UI. */
+#root aside > div:last-child {
+  display: none !important;
+}
