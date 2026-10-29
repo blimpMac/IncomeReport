@@ -1,3 +1,24 @@
+/* Keep the SOF number badge compact instead of stretching across the report header. */
+#root main > section:first-of-type > div:first-child > div:last-child {
+  align-self: flex-end;
+  width: auto;
+  min-width: 5.25rem;
+  max-width: 7rem;
+  padding: 0.35rem 0.8rem !important;
+  border-radius: 0.55rem !important;
+}
+
+#root main > section:first-of-type > div:first-child > div:last-child > div:first-child {
+  font-size: 0.58rem !important;
+  line-height: 1 !important;
+}
+
+#root main > section:first-of-type > div:first-child > div:last-child > div:last-child {
+  margin-top: 0.12rem;
+  font-size: 1rem !important;
+  line-height: 1.05 !important;
+}
+
 .sof-print-actions {
   position: fixed;
   right: 1.5rem;
@@ -98,6 +119,14 @@
 
   body.printing-sof main > section:first-of-type > div:first-child {
     padding: 3mm 4mm !important;
+  }
+
+  body.printing-sof main > section:first-of-type > div:first-child > div:last-child {
+    align-self: center !important;
+    min-width: 22mm !important;
+    max-width: 28mm !important;
+    padding: 1.5mm 3mm !important;
+    border-radius: 2mm !important;
   }
 
   body.printing-sof main > section:first-of-type > div:nth-child(2) {
