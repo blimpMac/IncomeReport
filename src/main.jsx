@@ -5,6 +5,7 @@ import SofReport from './SofReport.jsx'
 import './index.css'
 import './hide-source-status.css'
 import './sof-print.css'
+import './sof-badge.css'
 
 function openSofPrintDialog() {
   const selectedSof = document.querySelector('main select')?.value || 'Report'
