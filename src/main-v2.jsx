@@ -9,6 +9,7 @@ import './hide-source-status.css'
 import './sof-print.css'
 import './sof-badge.css'
 import './cost-comparison.css'
+import './responsive-fixes.css'
 
 function openSofPrintDialog() {
   const selectedSof = document.querySelector('main select')?.value || 'Report'
@@ -22,9 +23,14 @@ function openSofPrintDialog() {
 
 function SofActions() {
   return <div className="sof-print-actions" aria-label="SOF report export actions">
-    <button type="button" className="sof-print-button" onClick={openSofPrintDialog}>Print</button>
-    <button type="button" className="sof-pdf-button" onClick={openSofPrintDialog}>Save as PDF</button>
-    <button type="button" className="sof-xlsx-button" onClick={() => window.dispatchEvent(new Event('sof-export-xlsx'))}>Export as XLSX</button>
+    <div className="sof-action-items">
+      <button type="button" className="sof-print-button" onClick={openSofPrintDialog}>Print</button>
+      <button type="button" className="sof-pdf-button" onClick={openSofPrintDialog}>Save as PDF</button>
+      <button type="button" className="sof-xlsx-button" onClick={() => window.dispatchEvent(new Event('sof-export-xlsx'))}>Export as XLSX</button>
+    </div>
+    <button type="button" className="sof-actions-trigger" aria-label="Show report actions">
+      <span>Report Actions</span><span className="sof-actions-chevron">⌃</span>
+    </button>
   </div>
 }
 
