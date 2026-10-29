@@ -1,0 +1,56 @@
+/* Keep the selected SOF badge pinned to the uppermost-right corner of the project report header. */
+#root main > section:first-of-type > div:first-child {
+  position: relative !important;
+  padding-right: 6.5rem !important;
+}
+
+#root main > section:first-of-type > div:first-child > div:last-child {
+  position: absolute !important;
+  top: 0.55rem !important;
+  right: 0.65rem !important;
+  width: auto !important;
+  min-width: 4.7rem !important;
+  margin: 0 !important;
+  padding: 0.35rem 0.7rem !important;
+  border-radius: 0.45rem !important;
+  align-self: auto !important;
+}
+
+#root main > section:first-of-type > div:first-child > div:last-child > div:first-child {
+  font-size: 0.5rem !important;
+  line-height: 1 !important;
+}
+
+#root main > section:first-of-type > div:first-child > div:last-child > div:last-child {
+  margin-top: 0.12rem !important;
+  font-size: 0.95rem !important;
+  line-height: 1.05 !important;
+}
+
+@media (max-width: 640px) {
+  #root main > section:first-of-type > div:first-child {
+    padding-right: 5.6rem !important;
+  }
+
+  #root main > section:first-of-type > div:first-child > div:last-child {
+    top: 0.45rem !important;
+    right: 0.45rem !important;
+    min-width: 4.25rem !important;
+    padding: 0.3rem 0.55rem !important;
+  }
+}
+
+@media print {
+  body.printing-sof #root main > section:first-of-type > div:first-child {
+    position: relative !important;
+    padding-right: 23mm !important;
+  }
+
+  body.printing-sof #root main > section:first-of-type > div:first-child > div:last-child {
+    position: absolute !important;
+    top: 2mm !important;
+    right: 2mm !important;
+    min-width: 18mm !important;
+    padding: 1.2mm 2.5mm !important;
+  }
+}
