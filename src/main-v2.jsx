@@ -12,6 +12,7 @@ import './sof-badge.css'
 import './cost-comparison.css'
 import './responsive-fixes.css'
 import './ui-fixes.css'
+import './hover-action-fix.css'
 
 function openSofPrintDialog() {
   const selectedSof = document.querySelector('main select')?.value || 'Report'
