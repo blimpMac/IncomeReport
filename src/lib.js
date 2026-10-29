@@ -66,7 +66,7 @@ export function categorizeAccount(account = '') {
   if (/sales|revenue|service income|income on/.test(a)) return 'Revenue'
   if (/salary|wage|overtime|labor|labour|sss|philhealth|phic|pag-ibig|hdmf|13th month|employee benefit|payroll/.test(a)) return 'Labor'
   if (/material|consumable|ppe cost|tool|equipment|parts|electrical supply|hardware/.test(a)) return 'Materials'
-  if (/fare|transport|accommodation|lodging|meal|food|communication|internet|gasoline|fuel|parking|toll|courier|hauler|mobilization|freight|permit|miscellaneous|rental|rent|printing|grocer|delivery/.test(a)) return 'Overhead'
+  if (/fare|transport|accomm?odation|lodging|meal|food|communication|internet|gasoline|fuel|parking|toll|courier|hauler|mobilization|freight|permit|miscellaneous|rental|rent|printing|grocer|delivery/.test(a)) return 'Overhead'
   return 'Other'
 }
 
