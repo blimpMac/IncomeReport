@@ -9,16 +9,30 @@
 }
 
 * { box-sizing: border-box; }
+html, body, #root { width: 100%; max-width: 100%; min-width: 0; overflow-x: hidden; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: #f7f8fa; }
 button, input, select { font: inherit; }
 button { cursor: pointer; }
 
-.finance-table th { white-space: nowrap; }
-.finance-table td, .finance-table th { vertical-align: top; }
+.finance-table { table-layout: fixed; }
+.finance-table th, .finance-table td {
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+.finance-table th { white-space: normal; line-height: 1.25; }
 .scrollbar-thin { scrollbar-width: thin; }
+
+@media (max-width: 767px) {
+  .finance-table { table-layout: auto; }
+  .finance-table th, .finance-table td { min-width: 105px; }
+  .finance-table th:first-child, .finance-table td:first-child { min-width: 125px; }
+}
 
 @media print {
   .no-print { display: none !important; }
-  body { background: #fff; }
+  body { background: #fff; overflow: visible; }
+  main { overflow: visible !important; }
+  .finance-table { min-width: 0 !important; table-layout: auto; }
   .print-card { box-shadow: none !important; border-color: #d8dde6 !important; }
 }
