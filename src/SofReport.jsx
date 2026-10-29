@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import * as XLSX from 'xlsx'
 import { supabase, money, pct, shortDate } from './lib.js'
 
 const NAV = [['dashboard','Dashboard'],['upload','QB Upload'],['monthly','Monthly Report'],['sof','SOF Analysis'],['transactions','Transactions'],['reference','Reference Data'],['worksheets','QB Worksheets']]
@@ -7,6 +8,7 @@ const clean = (v) => String(v ?? '').replace(/\s+/g, ' ').trim()
 const num = (v) => Number(v || 0)
 const clamp = (v, min = 0, max = 1) => Math.min(max, Math.max(min, num(v)))
 const percent = (value, base) => !base ? '—' : `${(value / base * 100).toFixed(2)}%`
+const ratio = (value, base) => !base ? null : value / base
 const sofBase = (row) => {
   const raw = row?.sof_base ?? row?.sof_number ?? row?.sof_key ?? row?.sof_label ?? ''
   const match = String(raw).match(/\d+/)
@@ -24,6 +26,89 @@ const sourceDate = (value) => {
   if (!value) return '—'
   const d = new Date(value)
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('en-PH', { month: 'long', day: 'numeric', year: 'numeric' })
+}
+
+function exportSofXlsx(row) {
+  const contract = num(row.contract_value)
+  const budgetCost = num(row.total_cost_budget)
+  const budgetGp = contract - budgetCost
+  const progress = clamp(row.actual_pct)
+  const progressContract = contract * progress
+  const progressCost = budgetCost * progress
+  const progressGp = budgetGp * progress
+  const actualRevenue = num(row.revenue)
+  const actualCost = num(row.total_cost)
+  const actualGp = num(row.gross_profit)
+  const varianceContract = actualRevenue - progressContract
+  const varianceCost = actualCost - progressCost
+  const varianceGp = actualGp - progressGp
+
+  const reportData = [
+    ['E-WORKS ELECTRICAL WORKS - PROJECT PROGRESS & COST MONITORING REPORT'],
+    [],
+    ['SOF #', row.base],
+    ['Project Name', row.project_name || '—', 'Award Date', row.date_of_award || '—'],
+    ['Client', row.client_name || '—', 'Start Date', row.start_date || '—'],
+    ['Project Manager / PIC', row.pic || '—', 'Target Completion', row.target_completion_date || '—'],
+    ['Overall Progress', progress, 'Status', row.project_status || '—'],
+    ['Progress Data Updated', sourceDate(row.source_modified_at), 'QB Activity Through', row.last_transaction_date || '—'],
+    [],
+    ['PROJECT FINANCIAL & PROGRESS SUMMARY'],
+    ['Item', 'SOF Based - Estimates', '% on Contract', 'Progress Estimate', '% on Progress', 'QuickBooks Actual', '% on Invoice', 'Variance vs Progress', '% on Progress'],
+    ['Total Contract Price / Revenue', contract, contract ? 1 : null, progressContract, progressContract ? 1 : null, actualRevenue, actualRevenue ? 1 : null, varianceContract, ratio(varianceContract, progressContract)],
+    ['Total Cost', budgetCost, ratio(budgetCost, contract), progressCost, ratio(progressCost, progressContract), actualCost, ratio(actualCost, actualRevenue), varianceCost, ratio(varianceCost, progressCost)],
+    ['Gross Profit', budgetGp, ratio(budgetGp, contract), progressGp, ratio(progressGp, progressContract), actualGp, ratio(actualGp, actualRevenue), varianceGp, ratio(varianceGp, progressGp)],
+    [],
+    ['Project Remarks', row.remarks || 'No reference remark recorded for this SOF.'],
+    ['Transactions', num(row.transaction_count)],
+    ['Budget Margin', ratio(budgetGp, contract)],
+    ['Actual Margin', ratio(actualGp, actualRevenue)],
+  ]
+
+  const reportSheet = XLSX.utils.aoa_to_sheet(reportData)
+  reportSheet['!merges'] = [
+    { s: { r: 0, c: 0 }, e: { r: 0, c: 8 } },
+    { s: { r: 9, c: 0 }, e: { r: 9, c: 8 } },
+    { s: { r: 15, c: 1 }, e: { r: 15, c: 8 } },
+  ]
+  reportSheet['!cols'] = [
+    { wch: 30 }, { wch: 22 }, { wch: 16 }, { wch: 22 }, { wch: 16 }, { wch: 22 }, { wch: 16 }, { wch: 22 }, { wch: 16 },
+  ]
+  reportSheet['!rows'] = [{ hpt: 24 }]
+  reportSheet['!freeze'] = { xSplit: 1, ySplit: 11 }
+  reportSheet['!pageSetup'] = { orientation: 'landscape', paperSize: 9, fitToWidth: 1, fitToHeight: 1 }
+  reportSheet['!margins'] = { left: 0.25, right: 0.25, top: 0.35, bottom: 0.35, header: 0.15, footer: 0.15 }
+
+  const moneyCells = ['B12','D12','F12','H12','B13','D13','F13','H13','B14','D14','F14','H14']
+  for (const ref of moneyCells) if (reportSheet[ref]) reportSheet[ref].z = '₱#,##0.00;[Red]-₱#,##0.00'
+  const percentCells = ['B7','C12','E12','G12','I12','C13','E13','G13','I13','C14','E14','G14','I14','B18','B19']
+  for (const ref of percentCells) if (reportSheet[ref]) reportSheet[ref].z = '0.00%'
+
+  const totalCost = Math.max(0, actualCost)
+  const costData = [
+    ['ACTUAL QUICKBOOKS COST BREAKDOWN'],
+    ['Category', 'Amount', '% of Total Cost'],
+    ['Materials', num(row.materials), ratio(num(row.materials), totalCost)],
+    ['Labor', num(row.labor), ratio(num(row.labor), totalCost)],
+    ['Overhead', num(row.overhead), ratio(num(row.overhead), totalCost)],
+    ['Other / Unmapped', num(row.other_cost), ratio(num(row.other_cost), totalCost)],
+    ['Total Cost', actualCost, totalCost ? 1 : null],
+    ['Revenue / Invoice', actualRevenue, null],
+    ['Gross Profit', actualGp, ratio(actualGp, actualRevenue)],
+  ]
+  const costSheet = XLSX.utils.aoa_to_sheet(costData)
+  costSheet['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }]
+  costSheet['!cols'] = [{ wch: 26 }, { wch: 20 }, { wch: 18 }]
+  for (let r = 3; r <= 9; r++) {
+    if (costSheet[`B${r}`]) costSheet[`B${r}`].z = '₱#,##0.00;[Red]-₱#,##0.00'
+    if (costSheet[`C${r}`]) costSheet[`C${r}`].z = '0.00%'
+  }
+
+  const wb = XLSX.utils.book_new()
+  wb.Props = { Title: `SOF ${row.base} Financial & Progress Report`, Subject: 'E-WORKS SOF Analysis', Company: 'GREENLIGHT POWER' }
+  XLSX.utils.book_append_sheet(wb, reportSheet, 'SOF Report')
+  XLSX.utils.book_append_sheet(wb, costSheet, 'Cost Breakdown')
+  XLSX.writeFile(wb, `SOF-${row.base}-Financial-Progress-Report.xlsx`, { compression: true })
 }
 
 function Shell({ children }) {
@@ -171,6 +256,12 @@ function SofReportBody() {
     setSelected(String(preferred.base))
   }, [rows, selected])
   const row = rows.find(x => String(x.base) === String(selected)) || null
+
+  useEffect(() => {
+    const onExport = () => { if (row) exportSofXlsx(row) }
+    window.addEventListener('sof-export-xlsx', onExport)
+    return () => window.removeEventListener('sof-export-xlsx', onExport)
+  }, [row])
 
   if (error) return <div className="rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>
   if (!row) return <div className="rounded-xl border border-slate-200 bg-white p-8 text-sm text-slate-500 shadow-sm">Loading SOF report…</div>
