@@ -6,6 +6,7 @@ const NAV = [['dashboard','Dashboard'],['upload','QB Upload'],['monthly','Monthl
 const pageNow = () => { const p = (location.hash || '#/dashboard').replace(/^#\/?/, ''); return NAV.some(([x]) => x === p) ? p : 'dashboard' }
 const go = (p) => { location.hash = `#/${p}` }
 const cleanRemark = (value) => String(value || '').replace(/\s+/g, ' ').trim()
+const compactMoney = (value) => new Intl.NumberFormat('en-PH', { notation: 'compact', maximumFractionDigits: 1 }).format(Number(value || 0))
 const sofBaseNumber = (row) => {
   const raw = row?.sof_base ?? row?.sof_key ?? row?.sof_number ?? row?.sof_label ?? ''
   const match = String(raw).match(/\d+/)
@@ -69,6 +70,13 @@ function Table({ heads, rows, row, minWidth = 680 }) {
 function CostCell({ row }) {
   return <><div className="whitespace-nowrap font-medium">{money(row.total_cost)}</div><div className="mt-1 text-[11px] leading-4 text-slate-500">M {money(row.materials)} · L {money(row.labor)} · O {money(row.overhead)}</div></>
 }
+function SearchInput({ value, onChange, placeholder = 'Search SOF…' }) {
+  return <label className="relative block min-w-[220px] max-w-full">
+    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">⌕</span>
+    <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder} className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-sm" />
+    {value && <button type="button" aria-label="Clear search" onClick={() => onChange('')} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">×</button>}
+  </label>
+}
 
 function Shell({ children }) {
   const [page, setPage] = useState(pageNow())
@@ -78,19 +86,25 @@ function Shell({ children }) {
     addEventListener('hashchange', f)
     return () => removeEventListener('hashchange', f)
   }, [])
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') setOpen(false) }
+    addEventListener('keydown', onKey)
+    return () => removeEventListener('keydown', onKey)
+  }, [])
   return <div className="min-h-screen w-full overflow-x-hidden bg-[#f7f8fa]">
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
       <div className="mx-auto flex h-16 max-w-[1500px] items-center justify-between px-4 lg:px-6">
-        <div className="flex min-w-0 items-center gap-3"><button className="shrink-0 lg:hidden" onClick={() => setOpen(!open)}>☰</button><button onClick={() => go('dashboard')} className="min-w-0 text-left"><b className="block truncate text-sm">E-WORKS Income Report</b><div className="truncate text-xs text-slate-500">Finance reporting workspace</div></button></div>
+        <div className="flex min-w-0 items-center gap-3">
+          <button aria-label={open ? 'Close navigation' : 'Open navigation'} aria-expanded={open} className="shrink-0" onClick={() => setOpen(!open)}>☰</button>
+          <button onClick={() => go('dashboard')} className="min-w-0 text-left"><b className="block truncate text-sm">E-WORKS Income Report</b><div className="truncate text-xs text-slate-500">Finance reporting workspace</div></button>
+        </div>
       </div>
     </header>
-    <div className="mx-auto flex w-full max-w-[1500px]">
-      <aside className={`${open ? 'fixed inset-x-4 top-20 z-40 block rounded-xl border bg-white shadow-lg' : 'hidden'} w-60 shrink-0 p-3 lg:sticky lg:top-16 lg:block lg:h-[calc(100vh-4rem)] lg:border-r lg:border-slate-200`}>
-        <nav className="space-y-1">{NAV.map(([id, label]) => <button key={id} onClick={() => go(id)} className={`w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium ${page === id ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>{label}</button>)}</nav>
-        <div className="mt-5 border-t px-3 pt-4 text-xs leading-5 text-slate-500">Source: Supabase income data<br/>10 rows per page.</div>
-      </aside>
-      <main className="w-full min-w-0 flex-1 overflow-x-hidden p-4 lg:p-6 xl:p-8">{children}</main>
-    </div>
+    {open && <button aria-label="Close navigation" onClick={() => setOpen(false)} className="fixed inset-0 top-[4.375rem] z-40 bg-slate-950/30 backdrop-blur-[1px]" />}
+    <aside className={`${open ? 'block' : 'hidden'} fixed left-0 top-[4.375rem] z-50 h-[calc(100vh-4.375rem)] w-60 shrink-0 border-r border-slate-200 p-3`}>
+      <nav className="space-y-1">{NAV.map(([id, label]) => <button key={id} onClick={() => go(id)} className={`w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium ${page === id ? 'bg-slate-900 text-white' : 'text-slate-600 hover:bg-slate-100'}`}>{label}</button>)}</nav>
+    </aside>
+    <main className="w-full min-w-0 overflow-x-hidden p-4 lg:p-6 xl:p-8">{children}</main>
   </div>
 }
 
@@ -100,28 +114,140 @@ function useLatest() {
   return d
 }
 
+function expandedRemarks(report, sofRows = []) {
+  if (!report) return []
+  const revenue = Number(report.revenue || 0)
+  const cost = Number(report.total_cost || 0)
+  const gross = Number(report.gross_profit || 0)
+  const materials = Number(report.materials || 0)
+  const labor = Number(report.labor || 0)
+  const overhead = Number(report.overhead || 0)
+  const other = Number(report.other_cost || 0)
+  const active = sofRows.filter(x => Number(x.transaction_count || 0) > 0)
+  const lossSofs = active.filter(x => Number(x.gross_profit || 0) < 0)
+  const noRevenueCost = active.filter(x => Number(x.total_cost || 0) > 0 && Number(x.revenue || 0) <= 0)
+  const topCost = [...active].sort((a, b) => Number(b.total_cost || 0) - Number(a.total_cost || 0))[0]
+  const topLoss = [...lossSofs].sort((a, b) => Number(a.gross_profit || 0) - Number(b.gross_profit || 0))[0]
+  const topRevenue = [...active].sort((a, b) => Number(b.revenue || 0) - Number(a.revenue || 0))[0]
+  const topAccounts = Array.isArray(report.top_cost_accounts) ? report.top_cost_accounts : []
+
+  const remarks = []
+  remarks.push(`Financial position — Revenue is ${money(revenue)} against ${money(cost)} of cost, producing ${gross < 0 ? 'a gross loss' : 'gross profit'} of ${money(Math.abs(gross))}${report.margin_pct == null ? '' : ` and a ${Number(report.margin_pct).toFixed(1)}% margin`}. ${cost > revenue ? 'Cost is running above recognized revenue and requires project-level review before month-end close.' : 'Recognized revenue currently covers the recorded monthly cost.'}`)
+
+  if (cost > 0) {
+    remarks.push(`Cost mix — Materials represent ${(materials / cost * 100).toFixed(1)}%, labor ${(labor / cost * 100).toFixed(1)}%, overhead ${(overhead / cost * 100).toFixed(1)}%, and Other/unmapped ${(other / cost * 100).toFixed(1)}% of total cost. ${other / cost >= 0.2 ? 'The unmapped share is material and should be reclassified to the correct project cost buckets where support exists.' : 'The cost mix is reasonably classified, subject to normal reconciliation.'}`)
+  }
+
+  if (topCost) {
+    const share = cost > 0 ? Number(topCost.total_cost || 0) / cost * 100 : 0
+    remarks.push(`SOF exposure — ${displaySof(topCost)} carries the highest monthly cost at ${money(topCost.total_cost)}, or ${share.toFixed(1)}% of total cost${Number(topCost.revenue || 0) > 0 ? `, against ${money(topCost.revenue)} of recognized revenue` : ', with no recognized revenue in the same period'}. Review billing cut-off, subcontractor postings, and cost allocation for this SOF first.`)
+  }
+
+  if (active.length) {
+    remarks.push(`SOF exceptions — ${number(lossSofs.length)} of ${number(active.length)} active SOFs currently show negative gross profit, and ${number(noRevenueCost.length)} carry cost without matching revenue. Prioritize these SOFs for billing completeness, accrual timing, and project-cost validation.`)
+  }
+
+  if (topLoss) {
+    remarks.push(`Largest project loss — ${displaySof(topLoss)} shows a gross loss of ${money(Math.abs(Number(topLoss.gross_profit || 0)))}. Its cost is ${money(topLoss.total_cost)} versus ${money(topLoss.revenue)} revenue, making it the highest-impact SOF exception in the current month.`)
+  }
+
+  if (topRevenue && Number(topRevenue.revenue || 0) > 0) {
+    const share = revenue > 0 ? Number(topRevenue.revenue || 0) / revenue * 100 : 0
+    remarks.push(`Revenue concentration — ${displaySof(topRevenue)} contributes ${money(topRevenue.revenue)} or ${share.toFixed(1)}% of monthly revenue. Confirm that revenue recognition and corresponding project costs are aligned for this SOF.`)
+  }
+
+  if (topAccounts.length) {
+    const top3 = topAccounts.slice(0, 3).map(x => `${String(x.account || 'Unspecified')} (${money(x.net_cost)})`).join(', ')
+    remarks.push(`Account review — The largest cost accounts are ${top3}. Compare these balances with supporting invoices, payroll, and subcontractor schedules and confirm they are assigned to the correct SOFs.`)
+  }
+
+  for (const base of buildRemarks(report)) {
+    if (!remarks.some(x => x.toLowerCase().includes(base.slice(0, 24).toLowerCase()))) remarks.push(base)
+  }
+  return remarks.slice(0, 8)
+}
+
+function CostMixChart({ report }) {
+  const parts = [
+    { label: 'Materials', value: Number(report?.materials || 0), color: '#5b6cf9' },
+    { label: 'Labor', value: Number(report?.labor || 0), color: '#23b7a4' },
+    { label: 'Overhead', value: Number(report?.overhead || 0), color: '#f3a24f' },
+    { label: 'Other / unmapped', value: Number(report?.other_cost || 0), color: '#ef6b73' },
+  ]
+  const total = parts.reduce((t, x) => t + x.value, 0)
+  let cursor = 0
+  const stops = parts.map(x => {
+    const start = cursor
+    cursor += total ? x.value / total * 100 : 0
+    return `${x.color} ${start}% ${cursor}%`
+  }).join(', ')
+  return <Card className="p-5">
+    <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">Cost composition</h2><p className="mt-1 text-xs text-slate-500">Latest month · classified project costs</p></div><span className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-500">{money(total)}</span></div>
+    <div className="mt-5 grid items-center gap-5 sm:grid-cols-[180px_1fr]">
+      <div className="relative mx-auto h-40 w-40 rounded-full" style={{ background: total ? `conic-gradient(${stops})` : '#eef1f5' }}>
+        <div className="absolute inset-[22px] grid place-items-center rounded-full bg-white text-center"><div><div className="text-[11px] uppercase tracking-wide text-slate-400">Total cost</div><div className="mt-1 text-lg font-semibold text-slate-800">₱{compactMoney(total)}</div></div></div>
+      </div>
+      <div className="space-y-3">{parts.map(x => <div key={x.label}>
+        <div className="flex items-center justify-between gap-3 text-xs"><span className="flex items-center gap-2 font-medium text-slate-600"><span className="h-2.5 w-2.5 rounded-full" style={{ background: x.color }} />{x.label}</span><span className="tabular-nums text-slate-500">{total ? (x.value / total * 100).toFixed(1) : '0.0'}%</span></div>
+        <div className="mt-1 text-sm font-semibold text-slate-800">{money(x.value)}</div>
+      </div>)}</div>
+    </div>
+  </Card>
+}
+
+function TopSofChart({ rows }) {
+  const data = [...(rows || [])].filter(x => Number(x.total_cost || 0) > 0 || Number(x.revenue || 0) > 0).sort((a, b) => Number(b.total_cost || 0) - Number(a.total_cost || 0)).slice(0, 6)
+  const max = Math.max(1, ...data.flatMap(x => [Number(x.total_cost || 0), Number(x.revenue || 0)]))
+  return <Card className="p-5">
+    <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">Highest exposure SOFs</h2><p className="mt-1 text-xs text-slate-500">Cost vs revenue · latest month</p></div><button onClick={() => go('sof')} className="text-xs font-semibold text-indigo-600 hover:text-indigo-800">Open SOF analysis →</button></div>
+    <div className="mt-5 space-y-4">
+      {data.map(x => <div key={x.sof_key || x.sof_label}>
+        <div className="mb-1.5 flex items-center justify-between gap-3 text-xs"><span className="font-semibold text-slate-700">{displaySof(x)}</span><span className="text-slate-400">Cost {money(x.total_cost)}</span></div>
+        <div className="space-y-1">
+          <div className="h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-indigo-500" style={{ width: `${Math.max(1.5, Number(x.total_cost || 0) / max * 100)}%` }} /></div>
+          <div className="h-1.5 rounded-full bg-slate-100"><div className="h-1.5 rounded-full bg-emerald-400" style={{ width: `${Number(x.revenue || 0) ? Math.max(1.5, Number(x.revenue || 0) / max * 100) : 0}%` }} /></div>
+        </div>
+      </div>)}
+      {!data.length && <div className="py-10 text-center text-sm text-slate-500">No SOF data available for charting.</div>}
+    </div>
+    <div className="mt-4 flex items-center gap-4 border-t border-slate-100 pt-3 text-[11px] text-slate-500"><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-indigo-500" />Cost</span><span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-emerald-400" />Revenue</span></div>
+  </Card>
+}
+
+function RemarksPanel({ report, sofRows, title = 'Management remarks' }) {
+  const items = expandedRemarks(report, sofRows)
+  return <Card className="p-5">
+    <div className="mb-4 flex items-start justify-between gap-3"><div><h2 className="font-semibold">{title}</h2><p className="mt-1 text-xs text-slate-500">Exceptions, concentration risks, and month-end actions</p></div><span className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-600">{items.length} insights</span></div>
+    <div className="space-y-2.5">{items.map((x, i) => <div key={i} className="rounded-lg border border-slate-100 bg-slate-50/70 p-3.5 text-sm leading-6 text-slate-600"><span className="mr-2 inline-grid h-5 w-5 place-items-center rounded-full bg-white text-[11px] font-bold text-indigo-600 shadow-sm">{i + 1}</span>{x}</div>)}</div>
+  </Card>
+}
+
 function Dashboard() {
   const latest = useLatest()
   const [r, setR] = useState(null)
   const [tx, setTx] = useState([])
+  const [sofRows, setSofRows] = useState([])
   const [err, setErr] = useState('')
   useEffect(() => {
     if (!latest) return
+    const month = latest.report_date.slice(0, 7) + '-01'
     Promise.all([
-      supabase.rpc('income_monthly_report', { p_month: latest.report_date.slice(0, 7) + '-01' }),
+      supabase.rpc('income_monthly_report', { p_month: month }),
       supabase.from('income_transactions_ready').select('*').order('transaction_date', { ascending: false }).limit(10),
-    ]).then(([a, b]) => {
-      if (a.error || b.error) setErr(a.error?.message || b.error?.message)
-      else { setR(a.data); setTx(b.data || []) }
+      supabase.rpc('income_monthly_sof_summary', { p_month: month }),
+    ]).then(([a, b, c]) => {
+      if (a.error || b.error || c.error) setErr(a.error?.message || b.error?.message || c.error?.message)
+      else { setR(a.data); setTx(b.data || []); setSofRows([...(c.data || [])].sort(compareSof)); setErr('') }
     })
   }, [latest])
   return <>
-    <Header title="Dashboard" sub="Latest month-end position and focused review remarks." actions={<Button onClick={() => go('upload')}>Upload QB file</Button>} />
+    <Header title="Dashboard" sub="Latest month-end position with visual cost exposure, SOF concentration, and management review remarks." actions={<Button onClick={() => go('upload')}>Upload QB file</Button>} />
     <ErrorBox v={err} />
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Stat label="Revenue" value={money(r?.revenue)} /><Stat label="Total Cost" value={money(r?.total_cost)} /><Stat label="Gross Profit" value={money(r?.gross_profit)} note={`Margin ${pct(r?.margin_pct)}`} /><Stat label="Active SOFs" value={number(r?.unique_sof)} note={`${number(r?.unassigned_count)} unassigned`} /></div>
-    <div className="mt-5 grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]">
-      <Card><Table minWidth={620} heads={['Date','SOF','Type','Account','Debit / Credit']} rows={tx} row={x => <tr key={x.id}><td className="px-3 py-3 whitespace-nowrap">{shortDate(x.transaction_date)}</td><td className="px-3 py-3 font-medium">{displaySof(x)}</td><td className="px-3 py-3 break-words">{x.type}</td><td className="px-3 py-3 break-words">{x.account || '—'}</td><td className="px-3 py-3 whitespace-nowrap"><div>Dr {money(x.debit)}</div><div className="text-xs text-slate-500">Cr {money(x.credit)}</div></td></tr>} /></Card>
-      <Card className="p-4"><h2 className="mb-3 font-semibold">Review remarks</h2>{buildRemarks(r).map((x, i) => <div key={i} className="mb-2 break-words rounded-lg bg-slate-50 p-3 text-sm leading-6">{x}</div>)}</Card>
+    <div className="mt-5 grid min-w-0 gap-5 xl:grid-cols-2"><CostMixChart report={r} /><TopSofChart rows={sofRows} /></div>
+    <div className="mt-5 grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_440px]">
+      <Card><div className="border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-semibold">Latest transactions</h2><p className="mt-1 text-xs text-slate-500">Most recent QuickBooks activity</p></div><Table minWidth={620} heads={['Date','SOF','Type','Account','Debit / Credit']} rows={tx} row={x => <tr key={x.id}><td className="px-3 py-3 whitespace-nowrap">{shortDate(x.transaction_date)}</td><td className="px-3 py-3 font-medium">{displaySof(x)}</td><td className="px-3 py-3 break-words">{x.type}</td><td className="px-3 py-3 break-words">{x.account || '—'}</td><td className="px-3 py-3 whitespace-nowrap"><div>Dr {money(x.debit)}</div><div className="text-xs text-slate-500">Cr {money(x.credit)}</div></td></tr>} /></Card>
+      <RemarksPanel report={r} sofRows={sofRows} />
     </div>
   </>
 }
@@ -153,6 +279,7 @@ function Monthly() {
   const [month, setMonth] = useState(monthInput())
   const [r, setR] = useState(null)
   const [rows, setRows] = useState([])
+  const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [err, setErr] = useState('')
   useEffect(() => { if (latest) setMonth(latest.report_date.slice(0, 7)) }, [latest])
@@ -162,14 +289,20 @@ function Monthly() {
       else { setR(a.data); setRows([...(b.data || [])].sort(compareSof)); setPage(0); setErr('') }
     })
   }, [month])
-  const data = rows.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter(x => `${displaySof(x)} ${x.sof_label || ''} ${x.sof_key || ''}`.toLowerCase().includes(q))
+  }, [rows, search])
+  useEffect(() => setPage(0), [search])
+  const data = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
   return <>
-    <Header title="Monthly Report" sub="End-of-month financial report. SOFs are listed in numeric order." actions={<><input type="month" value={month} onChange={e => setMonth(e.target.value)} className="max-w-full rounded-lg border px-3 py-2" /><Button secondary onClick={() => window.print()}>Print / PDF</Button></>} />
+    <Header title="Monthly Report" sub="End-of-month financial report. Search an SOF or review the month in numeric SOF order." actions={<><SearchInput value={search} onChange={setSearch} placeholder="Search SOF…" /><input type="month" value={month} onChange={e => setMonth(e.target.value)} className="max-w-full rounded-lg border px-3 py-2" /><Button secondary onClick={() => window.print()}>Print / PDF</Button></>} />
     <ErrorBox v={err} />
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><Stat label="Revenue" value={money(r?.revenue)} /><Stat label="Materials" value={money(r?.materials)} /><Stat label="Labor" value={money(r?.labor)} /><Stat label="Overhead" value={money(r?.overhead)} /><Stat label="Gross Profit" value={money(r?.gross_profit)} note={`Margin ${pct(r?.margin_pct)}`} /></div>
-    <div className="mt-5 grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_340px]">
-      <Card><Table minWidth={680} heads={['SOF','Tx','Revenue','Total Cost','Gross Profit','Margin']} rows={data} row={x => <tr key={x.sof_key}><td className="px-3 py-3 font-medium">{displaySof(x)}</td><td className="px-3 py-3">{number(x.transaction_count)}</td><td className="px-3 py-3 whitespace-nowrap">{money(x.revenue)}</td><td className="px-3 py-3"><CostCell row={x} /></td><td className="px-3 py-3 whitespace-nowrap">{money(x.gross_profit)}</td><td className="px-3 py-3 whitespace-nowrap">{pct(x.margin_pct)}</td></tr>} /><Pager page={page} total={rows.length} setPage={setPage} /></Card>
-      <Card className="p-4"><h2 className="mb-3 font-semibold">Remarks</h2>{buildRemarks(r).map((x, i) => <p key={i} className="mb-2 break-words rounded-lg bg-slate-50 p-3 text-sm leading-6">{x}</p>)}</Card>
+    <div className="mt-5 grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_440px]">
+      <Card><Table minWidth={680} heads={['SOF','Tx','Revenue','Total Cost','Gross Profit','Margin']} rows={data} row={x => <tr key={x.sof_key}><td className="px-3 py-3 font-medium">{displaySof(x)}</td><td className="px-3 py-3">{number(x.transaction_count)}</td><td className="px-3 py-3 whitespace-nowrap">{money(x.revenue)}</td><td className="px-3 py-3"><CostCell row={x} /></td><td className="px-3 py-3 whitespace-nowrap">{money(x.gross_profit)}</td><td className="px-3 py-3 whitespace-nowrap">{pct(x.margin_pct)}</td></tr>} /><Pager page={page} total={filtered.length} setPage={setPage} /></Card>
+      <RemarksPanel report={r} sofRows={rows} title="Monthly review remarks" />
     </div>
   </>
 }
@@ -233,6 +366,7 @@ function buildSofRegister(summaries, references) {
 function SofAnalysis() {
   const [summaries, setSummaries] = useState([])
   const [references, setReferences] = useState([])
+  const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [err, setErr] = useState('')
   useEffect(() => {
@@ -245,10 +379,17 @@ function SofAnalysis() {
     })
   }, [])
   const rows = useMemo(() => buildSofRegister(summaries, references), [summaries, references])
-  const data = rows.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return rows
+    return rows.filter(x => `${displaySof(x)} ${x.project_name || ''} ${x.project_status || ''} ${x.remark || ''}`.toLowerCase().includes(q))
+  }, [rows, search])
+  useEffect(() => setPage(0), [search])
+  const data = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
   return <>
-    <Header title="SOF Analysis" sub="All known SOFs from Reference Data and QB are combined, checked, and sorted numerically from the lowest SOF to the highest." />
+    <Header title="SOF Analysis" sub="All known SOFs from Reference Data and QB are combined and sorted numerically. Use the search box to find a specific SOF, project, status, or remark." actions={<SearchInput value={search} onChange={setSearch} placeholder="Search SOF or project…" />} />
     <ErrorBox v={err} />
+    <div className="mb-3 text-xs text-slate-500">{search ? `${number(filtered.length)} matching SOF${filtered.length === 1 ? '' : 's'} out of ${number(rows.length)}` : `${number(rows.length)} SOFs in register`}</div>
     <Card>
       <Table minWidth={760} heads={['SOF / Project','Status','Revenue','Total Cost','Gross Profit','Margin / Budget','Remarks']} rows={data} row={x => <tr key={x.sof_key}>
         <td className="px-3 py-3"><b>{displaySof(x)}</b><div className="mt-1 break-words text-xs leading-5 text-slate-500">{x.project_name || 'No reference project'}</div></td>
@@ -259,13 +400,14 @@ function SofAnalysis() {
         <td className="px-3 py-3"><div className="whitespace-nowrap">{pct(x.margin_pct)}</div><div className="mt-1 text-xs text-slate-500">{x.budget_variance == null ? 'Budget —' : `Var ${money(x.budget_variance)}`}</div></td>
         <td className="px-3 py-3 break-words text-xs leading-5 text-slate-600">{x.remark}</td>
       </tr>} />
-      <Pager page={page} total={rows.length} setPage={setPage} />
+      <Pager page={page} total={filtered.length} setPage={setPage} />
     </Card>
   </>
 }
 
 function ReferenceData() {
   const [allRows, setAllRows] = useState([])
+  const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [err, setErr] = useState('')
   useEffect(() => {
@@ -274,9 +416,15 @@ function ReferenceData() {
       else { setAllRows([...(data || [])].sort(compareSof)); setErr('') }
     })
   }, [])
-  const rows = allRows.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return allRows
+    return allRows.filter(x => `${x.sof_number || ''} ${x.project_name || ''} ${x.project_status || ''} ${cleanRemark(x.remarks)}`.toLowerCase().includes(q))
+  }, [allRows, search])
+  useEffect(() => setPage(0), [search])
+  const rows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
   return <>
-    <Header title="Reference Data" sub="Project/SOF master data sorted numerically by SOF. Continuation and variation rows stay directly after their base SOF." />
+    <Header title="Reference Data" sub="Project/SOF master data sorted numerically by SOF. Search by SOF, project, status, or remark." actions={<SearchInput value={search} onChange={setSearch} placeholder="Search SOF or project…" />} />
     <ErrorBox v={err} />
     <Card>
       <Table minWidth={720} heads={['SOF','Project','Status','Contract','Budget','Remarks']} rows={rows} row={x => <tr key={x.id}>
@@ -287,7 +435,7 @@ function ReferenceData() {
         <td className="px-3 py-3"><div className="whitespace-nowrap font-medium">{money(x.total_cost_budget)}</div><div className="mt-1 text-[11px] leading-4 text-slate-500">M {money(x.materials_budget)} · L {money(x.labor_budget)} · O {money(x.overhead_budget)}</div></td>
         <td className="px-3 py-3 break-words text-xs leading-5 text-slate-600">{cleanRemark(x.remarks) || '—'}</td>
       </tr>} />
-      <Pager page={page} total={allRows.length} setPage={setPage} />
+      <Pager page={page} total={filtered.length} setPage={setPage} />
     </Card>
   </>
 }
