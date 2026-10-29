@@ -24,7 +24,19 @@ Lightweight React + Vite + Tailwind finance dashboard built around only the **RE
 
 ## Environment
 
-Copy `.env.example` to `.env.local` for local development. Do not commit the real `.env`. Configure the same variables in Vercel when the project is linked.
+The real local environment file is intentionally ignored by Git and is **not stored in GitHub**. Vercel now holds the Supabase values for Production, Preview, and Development.
+
+After cloning or pulling the repo on a machine that is authorized for the `income-report` Vercel project, run:
+
+```bash
+npm install
+npx vercel link --yes
+npm run env:pull
+```
+
+That creates `.env.local` on your machine from the project's Vercel environment while keeping it out of GitHub. `.gitignore` already excludes `.env`, `.env.local`, and `.vercel`.
+
+The app expects:
 
 ```env
 VITE_SUPABASE_URL=...
@@ -36,6 +48,7 @@ VITE_APP_NAME=E-WORKS Income Report
 
 ```bash
 npm install
+npm run env:pull
 npm run dev
 ```
 
