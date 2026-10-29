@@ -10,8 +10,13 @@ Lightweight React + Vite + Tailwind finance dashboard built around only the **RE
 - SOF-level lifetime computations matched to Reference Data budgets.
 - All-transactions page and Reference Data page with 10-row pagination.
 - Separate pages for Dashboard, QB Upload, Monthly Report, SOF Analysis, Transactions, Reference Data, and QB Worksheets.
-- Supabase Auth + RLS. Finance objects are intended for authenticated users only.
+- No application login screen. The dashboard opens directly and uses the Supabase publishable browser client.
+- Supabase RLS remains enabled on the IncomeReport tables, with browser permissions scoped to the operations required by the login-free app.
 - Minimal UI: restrained cards, compact tables, responsive sidebar, no decorative chart clutter.
+
+## Access model
+
+This deployment is intentionally login-free. Anyone who can reach the website can view the IncomeReport data exposed to the browser and use the enabled QB import actions. Do not place a Supabase `service_role` or secret key in the frontend; only the publishable browser key belongs in `VITE_SUPABASE_PUBLISHABLE_KEY`.
 
 ## Stack
 
@@ -24,7 +29,7 @@ Lightweight React + Vite + Tailwind finance dashboard built around only the **RE
 
 ## Environment
 
-The real local environment file is intentionally ignored by Git and is **not stored in GitHub**. Vercel now holds the Supabase values for Production, Preview, and Development.
+The real local environment file is intentionally ignored by Git and is **not stored in GitHub**. Vercel holds the Supabase values for Production, Preview, and Development.
 
 After cloning or pulling the repo on a machine that is authorized for the `income-report` Vercel project, run:
 
@@ -54,9 +59,9 @@ npm run dev
 
 ## Database
 
-Apply `supabase/migrations/20261029_income_report.sql` to the intended Supabase project. It creates only `income_*` objects and is designed not to modify the existing RFP tables.
+The live Supabase project contains the isolated `income_*` objects used by this app. The repository also contains `supabase/migrations/20261029_income_report.sql` as the base schema definition; it is designed not to modify the existing RFP tables.
 
-After applying the migration, load the current E-WORKS `REFERENCE DATA` rows into `income_reference_projects` before using budget/reference comparisons.
+Load the current E-WORKS `REFERENCE DATA` rows into `income_reference_projects` before using budget/reference comparisons.
 
 ## Reference workbook integration
 
