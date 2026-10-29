@@ -55,7 +55,6 @@
   -webkit-overflow-scrolling: touch;
 }
 
-/* On normal desktop widths the whole comparison fits without page overflow. */
 .costcompare-page .costcompare-table {
   width: 100%;
   min-width: 0 !important;
@@ -77,20 +76,19 @@
   line-height: 1.25;
 }
 
+/* Six-column layout after removing the percentage column. */
 .costcompare-page .costcompare-table th:nth-child(1),
-.costcompare-page .costcompare-table td:nth-child(1) { width: 11%; }
+.costcompare-page .costcompare-table td:nth-child(1) { width: 12%; }
 .costcompare-page .costcompare-table th:nth-child(2),
-.costcompare-page .costcompare-table td:nth-child(2) { width: 13%; }
+.costcompare-page .costcompare-table td:nth-child(2) { width: 14%; }
 .costcompare-page .costcompare-table th:nth-child(3),
-.costcompare-page .costcompare-table td:nth-child(3) { width: 15%; }
+.costcompare-page .costcompare-table td:nth-child(3) { width: 16%; }
 .costcompare-page .costcompare-table th:nth-child(4),
-.costcompare-page .costcompare-table td:nth-child(4) { width: 13%; }
+.costcompare-page .costcompare-table td:nth-child(4) { width: 14%; }
 .costcompare-page .costcompare-table th:nth-child(5),
-.costcompare-page .costcompare-table td:nth-child(5) { width: 15%; }
+.costcompare-page .costcompare-table td:nth-child(5) { width: 16%; }
 .costcompare-page .costcompare-table th:nth-child(6),
-.costcompare-page .costcompare-table td:nth-child(6) { width: 10%; }
-.costcompare-page .costcompare-table th:nth-child(7),
-.costcompare-page .costcompare-table td:nth-child(7) { width: 23%; }
+.costcompare-page .costcompare-table td:nth-child(6) { width: 28%; }
 
 .costcompare-page .costcompare-money {
   display: inline-block;
@@ -98,7 +96,7 @@
   font-size: .72rem;
   line-height: 1.3;
   font-variant-numeric: tabular-nums;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .costcompare-page .costcompare-table td:last-child {
@@ -113,13 +111,13 @@
   }
 
   .costcompare-page .costcompare-table {
-    min-width: 860px !important;
+    min-width: 760px !important;
     table-layout: auto;
   }
 
   .costcompare-page .costcompare-table th,
   .costcompare-page .costcompare-table td {
-    min-width: 105px;
+    min-width: 100px;
   }
 
   .costcompare-page .costcompare-table th:last-child,
@@ -149,6 +147,6 @@
   }
 
   .costcompare-page .costcompare-table {
-    min-width: 780px !important;
+    min-width: 700px !important;
   }
 }
