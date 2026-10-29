@@ -367,6 +367,51 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   .finance-table td:first-child { min-width: 125px; }
 }
 
+/* True off-canvas navigation: hidden until the burger button opens it. */
+#root > div > header button.lg\:hidden {
+  display: grid !important;
+}
+
+#root aside.hidden {
+  display: none !important;
+}
+
+#root aside.block {
+  display: block !important;
+  position: fixed !important;
+  z-index: 60 !important;
+  left: 0 !important;
+  right: auto !important;
+  top: 4.375rem !important;
+  bottom: 0 !important;
+  width: min(16.25rem, 86vw) !important;
+  height: calc(100vh - 4.375rem) !important;
+  max-height: none !important;
+  overflow-y: auto !important;
+  border: 0 !important;
+  border-right: 1px solid #293044 !important;
+  border-radius: 0 !important;
+  padding: 1rem 0.72rem !important;
+  box-shadow: 16px 0 42px rgba(15, 23, 42, 0.22) !important;
+  animation: sidebar-slide-in .18s ease-out both;
+}
+
+#root aside.block nav {
+  grid-template-columns: 1fr !important;
+  padding-top: 2.25rem !important;
+}
+
+@keyframes sidebar-slide-in {
+  from { transform: translateX(-100%); opacity: .7; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@media (max-width: 640px) {
+  #root aside.block {
+    width: min(18rem, 88vw) !important;
+  }
+}
+
 @media print {
   .no-print,
   #root aside,
