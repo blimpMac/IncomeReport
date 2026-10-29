@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "env:pull": "vercel env pull .env.local --yes --environment=development"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.118.0",
@@ -19,6 +20,7 @@
     "@tailwindcss/vite": "4.3.3",
     "@vitejs/plugin-react": "6.1.2",
     "tailwindcss": "4.3.3",
+    "vercel": "65.4.0",
     "vite": "8.3.5"
   },
   "engines": {
