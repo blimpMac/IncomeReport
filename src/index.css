@@ -55,31 +55,119 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   background: #fff;
 }
 
+/* Refined sidebar */
 #root aside {
-  background: #102a43 !important;
+  overflow: hidden;
+  background: linear-gradient(180deg, #102a43 0%, #0c243a 100%) !important;
   color: #f8fafc !important;
-  border-color: #183b59 !important;
+  border-color: #1e415d !important;
+}
+#root aside nav {
+  position: relative;
+  display: grid;
+  gap: 0.34rem;
+  padding-top: 2.1rem;
+}
+#root aside nav::before {
+  content: "FINANCE WORKSPACE";
+  position: absolute;
+  top: 0.2rem;
+  left: 0.7rem;
+  color: #7892a8;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
 }
 #root aside nav button {
-  min-height: 3rem;
-  border-radius: 0.55rem !important;
-  padding: 0.65rem 0.75rem !important;
-  color: #dbe5ef !important;
+  position: relative;
+  display: flex;
+  min-height: 3.15rem;
+  width: 100%;
+  align-items: center;
+  gap: 0.78rem;
+  border: 1px solid transparent;
+  border-radius: 0.65rem !important;
+  padding: 0.58rem 0.72rem 0.58rem 0.64rem !important;
+  color: #c9d7e3 !important;
+  background: transparent;
+  font-size: 0.82rem !important;
   font-weight: 700 !important;
-  transition: background-color 0.16s ease, color 0.16s ease, transform 0.16s ease;
+  letter-spacing: 0.005em;
+  transition: background-color 0.16s ease, color 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+}
+#root aside nav button::before {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0.55rem;
+  background: rgba(255, 255, 255, 0.055);
+  color: #a9bdce;
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+}
+#root aside nav button:nth-child(1)::before { content: "D"; }
+#root aside nav button:nth-child(2)::before { content: "↑"; font-size: 1rem; }
+#root aside nav button:nth-child(3)::before { content: "M"; }
+#root aside nav button:nth-child(4)::before { content: "S"; }
+#root aside nav button:nth-child(5)::before { content: "T"; }
+#root aside nav button:nth-child(6)::before { content: "R"; }
+#root aside nav button:nth-child(7)::before { content: "W"; }
+#root aside nav button::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 -0.75rem;
+  width: 3px;
+  border-radius: 0 999px 999px 0;
+  background: transparent;
 }
 #root aside nav button:hover {
-  background: rgba(255, 255, 255, 0.11) !important;
+  border-color: rgba(255, 255, 255, 0.06) !important;
+  background: rgba(255, 255, 255, 0.075) !important;
   color: #fff !important;
+  transform: translateX(1px);
+}
+#root aside nav button:hover::before {
+  border-color: rgba(255, 255, 255, 0.16);
+  background: rgba(255, 255, 255, 0.09);
+  color: #fff;
 }
 #root aside nav button.bg-slate-900 {
-  background: #fff !important;
+  border-color: #dfe8ef !important;
+  background: #f8fbfd !important;
   color: #102a43 !important;
-  box-shadow: 0 2px 8px rgba(2, 12, 27, 0.18);
+  box-shadow: 0 8px 24px rgba(2, 12, 27, 0.16);
 }
+#root aside nav button.bg-slate-900::before {
+  border-color: #c9d8e3;
+  background: #e8f0f5;
+  color: #173f6b;
+}
+#root aside nav button.bg-slate-900::after { background: #20a36a; }
 #root aside > div:last-child {
-  border-color: rgba(255, 255, 255, 0.14) !important;
-  color: #9fb1c2 !important;
+  position: relative;
+  margin-top: 1rem !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 0.7rem;
+  background: rgba(255, 255, 255, 0.045);
+  padding: 0.72rem 0.78rem !important;
+  color: #8fa6b9 !important;
+  font-size: 0.68rem !important;
+  line-height: 1.5 !important;
+}
+#root aside > div:last-child::before {
+  content: "";
+  display: inline-block;
+  width: 0.42rem;
+  height: 0.42rem;
+  margin-right: 0.42rem;
+  border-radius: 999px;
+  background: #2fc47d;
+  box-shadow: 0 0 0 3px rgba(47, 196, 125, 0.12);
+  vertical-align: 0.05rem;
 }
 
 #root main {
@@ -196,6 +284,10 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 }
 .finance-table tbody tr { transition: background-color 0.14s ease; }
 .finance-table tbody tr:hover { background: #f7faf9; }
+.finance-table tbody tbody td {
+  color: #26384d;
+  border-color: #edf1f4;
+}
 .finance-table tbody td {
   color: #26384d;
   border-color: #edf1f4;
@@ -214,20 +306,33 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 
 @media (min-width: 1024px) {
   #root aside {
-    width: 18rem !important;
+    width: 15.5rem !important;
     top: 5.25rem !important;
     height: calc(100vh - 5.25rem) !important;
-    padding: 1rem 0.75rem !important;
+    padding: 1.05rem 0.78rem !important;
   }
   #root main { padding: 1.5rem 2rem 2rem !important; }
 }
 
 @media (max-width: 1023px) {
   #root aside {
+    inset-inline: 0.75rem !important;
+    top: 5.75rem !important;
+    width: auto !important;
+    max-height: calc(100vh - 6.5rem);
+    overflow-y: auto;
     border: 1px solid #24425e !important;
     border-radius: 0.85rem !important;
     box-shadow: 0 18px 45px rgba(8, 25, 42, 0.28);
+    padding: 0.85rem !important;
   }
+  #root aside nav { grid-template-columns: repeat(2, minmax(0, 1fr)); padding-top: 2rem; }
+  #root aside nav::before { grid-column: 1 / -1; }
+  #root aside > div:last-child { margin-bottom: 0.15rem; }
+}
+
+@media (max-width: 640px) {
+  #root aside nav { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 767px) {
