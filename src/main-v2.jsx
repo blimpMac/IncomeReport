@@ -10,6 +10,7 @@ import './sof-print.css'
 import './sof-badge.css'
 import './cost-comparison.css'
 import './responsive-fixes.css'
+import './costcompare-layout.css'
 import './hover-action-fix.css'
 
 const NAV = [
