@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node scripts/migrate-once.mjs",
     "preview": "vite preview",
     "env:pull": "vercel env pull .env.local --yes --environment=development"
   },
