@@ -22,10 +22,15 @@ function openSofPrintDialog() {
   requestAnimationFrame(() => window.print())
 }
 
+function exportSofXlsx() {
+  window.dispatchEvent(new Event('sof-export-xlsx'))
+}
+
 function SofPrintActions() {
-  return <div className="sof-print-actions" aria-label="SOF report print actions">
+  return <div className="sof-print-actions" aria-label="SOF report export actions">
     <button type="button" className="sof-print-button" onClick={openSofPrintDialog}>Print</button>
     <button type="button" className="sof-pdf-button" title="Opens the browser print dialog prepared for A4. Choose Save as PDF as the destination." onClick={openSofPrintDialog}>Save as PDF</button>
+    <button type="button" className="sof-xlsx-button" title="Export the currently selected SOF report as an Excel workbook." onClick={exportSofXlsx}>Export as XLSX</button>
   </div>
 }
 
