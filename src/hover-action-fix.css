@@ -1,0 +1,32 @@
+/* Keep the floating report-action hover menu open while the pointer crosses the small gap. */
+.sof-print-actions::before {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 100%;
+  width: 10rem;
+  height: .7rem;
+  pointer-events: auto;
+}
+
+.sof-print-actions:hover .sof-action-items,
+.sof-print-actions:focus-within .sof-action-items {
+  pointer-events: auto;
+}
+
+.sof-action-items {
+  visibility: visible;
+}
+
+/* Opening: bottom item first, then upward. */
+.sof-print-actions:hover .sof-action-items .sof-xlsx-button,
+.sof-print-actions:focus-within .sof-action-items .sof-xlsx-button { transition-delay: 0s !important; }
+.sof-print-actions:hover .sof-action-items .sof-pdf-button,
+.sof-print-actions:focus-within .sof-action-items .sof-pdf-button { transition-delay: .05s !important; }
+.sof-print-actions:hover .sof-action-items .sof-print-button,
+.sof-print-actions:focus-within .sof-action-items .sof-print-button { transition-delay: .10s !important; }
+
+/* Closing: top item first, then downward. */
+.sof-action-items .sof-print-button { transition-delay: 0s !important; }
+.sof-action-items .sof-pdf-button { transition-delay: .05s !important; }
+.sof-action-items .sof-xlsx-button { transition-delay: .10s !important; }
