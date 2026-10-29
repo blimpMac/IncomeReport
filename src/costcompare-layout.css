@@ -1,0 +1,154 @@
+/* Cost Comparison only: keep the full page inside the dashboard viewport. */
+.costcompare-page {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.costcompare-page .cost-comparison-section {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden !important;
+}
+
+.costcompare-page .cost-comparison-title {
+  min-width: 0;
+  padding: .9rem 1rem;
+}
+
+.costcompare-page .cost-comparison-title > div:first-child {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.costcompare-page .costcompare-project-name {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.costcompare-page .cost-stat-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: .65rem;
+  padding: .8rem;
+}
+
+.costcompare-page .costcompare-stat {
+  min-width: 0;
+  padding: .75rem !important;
+}
+
+.costcompare-page .costcompare-stat-value {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: clamp(.9rem, 1.2vw, 1.12rem);
+  line-height: 1.2;
+}
+
+.costcompare-page .cost-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto !important;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* On normal desktop widths the whole comparison fits without page overflow. */
+.costcompare-page .costcompare-table {
+  width: 100%;
+  min-width: 0 !important;
+  table-layout: fixed;
+  font-size: .74rem;
+}
+
+.costcompare-page .costcompare-table th,
+.costcompare-page .costcompare-table td {
+  min-width: 0;
+  padding: .72rem .52rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.costcompare-page .costcompare-table th {
+  font-size: .62rem;
+  line-height: 1.25;
+}
+
+.costcompare-page .costcompare-table th:nth-child(1),
+.costcompare-page .costcompare-table td:nth-child(1) { width: 11%; }
+.costcompare-page .costcompare-table th:nth-child(2),
+.costcompare-page .costcompare-table td:nth-child(2) { width: 13%; }
+.costcompare-page .costcompare-table th:nth-child(3),
+.costcompare-page .costcompare-table td:nth-child(3) { width: 15%; }
+.costcompare-page .costcompare-table th:nth-child(4),
+.costcompare-page .costcompare-table td:nth-child(4) { width: 13%; }
+.costcompare-page .costcompare-table th:nth-child(5),
+.costcompare-page .costcompare-table td:nth-child(5) { width: 15%; }
+.costcompare-page .costcompare-table th:nth-child(6),
+.costcompare-page .costcompare-table td:nth-child(6) { width: 10%; }
+.costcompare-page .costcompare-table th:nth-child(7),
+.costcompare-page .costcompare-table td:nth-child(7) { width: 23%; }
+
+.costcompare-page .costcompare-money {
+  display: inline-block;
+  max-width: 100%;
+  font-size: .72rem;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.costcompare-page .costcompare-table td:last-child {
+  max-width: none;
+  font-size: .71rem;
+  line-height: 1.4;
+}
+
+@media (max-width: 1180px) {
+  .costcompare-page .cost-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .costcompare-page .costcompare-table {
+    min-width: 860px !important;
+    table-layout: auto;
+  }
+
+  .costcompare-page .costcompare-table th,
+  .costcompare-page .costcompare-table td {
+    min-width: 105px;
+  }
+
+  .costcompare-page .costcompare-table th:last-child,
+  .costcompare-page .costcompare-table td:last-child {
+    min-width: 220px;
+  }
+}
+
+@media (max-width: 760px) {
+  .costcompare-page .cost-comparison-title {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .costcompare-page .cost-comparison-brand {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .costcompare-page .cost-comparison-brand > div {
+    text-align: left;
+  }
+
+  .costcompare-page .cost-stat-grid {
+    grid-template-columns: 1fr;
+    padding: .65rem;
+  }
+
+  .costcompare-page .costcompare-table {
+    min-width: 780px !important;
+  }
+}
