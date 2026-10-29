@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import SofReport from './SofReport.jsx'
-import SofCostComparison from './SofCostComparison.jsx'
+import CostComparisonPage from './CostComparisonPage.jsx'
 import DataUpload from './DataUpload.jsx'
 import './index.css'
 import './hide-source-status.css'
@@ -32,7 +32,8 @@ function RootRouter() {
   const [hash, setHash] = useState(location.hash || '#/dashboard')
   useEffect(() => { const onHash = () => setHash(location.hash || '#/dashboard'); addEventListener('hashchange', onHash); return () => removeEventListener('hashchange', onHash) }, [])
   const page = hash.replace(/^#\/?/, '')
-  if (page === 'sof') return <><SofActions /><SofReport /><SofCostComparison /></>
+  if (page === 'sof') return <><SofActions /><SofReport /></>
+  if (page === 'costcompare') return <CostComparisonPage />
   if (page === 'upload') return <DataUpload />
   return <App />
 }
