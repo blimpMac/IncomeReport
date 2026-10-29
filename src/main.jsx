@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 import SofReport from './SofReport.jsx'
+import DataUpload from './DataUpload.jsx'
 import './index.css'
 import './hide-source-status.css'
 import './sof-print.css'
 import './sof-badge.css'
+import './cost-comparison.css'
 
 function openSofPrintDialog() {
   const selectedSof = document.querySelector('main select')?.value || 'Report'
@@ -42,7 +44,9 @@ function RootRouter() {
     return () => removeEventListener('hashchange', onHash)
   }, [])
   const page = hash.replace(/^#\/?/, '')
-  return page === 'sof' ? <><SofPrintActions /><SofReport /></> : <App />
+  if (page === 'sof') return <><SofPrintActions /><SofReport /></>
+  if (page === 'upload') return <DataUpload />
+  return <App />
 }
 
 createRoot(document.getElementById('root')).render(
