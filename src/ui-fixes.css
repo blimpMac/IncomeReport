@@ -31,9 +31,11 @@ html, body, #root {
 }
 
 /* Bottom-docked hover drawer: opens bottom -> top, closes top -> bottom. */
-.global-hover-nav {
+#root aside.global-hover-nav {
+  display: block !important;
   position: fixed !important;
   left: 1rem !important;
+  right: auto !important;
   bottom: 1rem !important;
   top: auto !important;
   z-index: 100 !important;
@@ -51,14 +53,14 @@ html, body, #root {
   will-change: transform;
 }
 
-.global-hover-nav:hover,
-.global-hover-nav:focus-within,
-.global-hover-nav[data-open="true"] {
+#root aside.global-hover-nav:hover,
+#root aside.global-hover-nav:focus-within,
+#root aside.global-hover-nav[data-open="true"] {
   transform: translateY(0);
   box-shadow: 0 24px 60px rgba(15,23,42,.36) !important;
 }
 
-.global-hover-nav-handle {
+#root aside.global-hover-nav .global-hover-nav-handle {
   display: grid;
   width: 100%;
   height: 3rem;
@@ -81,41 +83,43 @@ html, body, #root {
   color: #8793a7;
   transition: transform .3s ease;
 }
-.global-hover-nav:hover .global-hover-nav-arrow,
-.global-hover-nav:focus-within .global-hover-nav-arrow,
-.global-hover-nav[data-open="true"] .global-hover-nav-arrow {
+#root aside.global-hover-nav:hover .global-hover-nav-arrow,
+#root aside.global-hover-nav:focus-within .global-hover-nav-arrow,
+#root aside.global-hover-nav[data-open="true"] .global-hover-nav-arrow {
   transform: rotate(180deg);
 }
 
-.global-hover-nav-panel {
+#root aside.global-hover-nav .global-hover-nav-panel {
   max-height: calc(100vh - 5.5rem);
   overflow-y: auto;
   padding: .8rem;
 }
 
-.global-hover-nav-heading {
+#root aside.global-hover-nav .global-hover-nav-heading {
   display: flex;
   flex-direction: column;
   gap: .08rem;
   padding: .35rem .5rem .8rem;
 }
-.global-hover-nav-heading b {
+#root aside.global-hover-nav .global-hover-nav-heading b {
   color: #fff;
   font-size: .8rem;
   letter-spacing: .08em;
 }
-.global-hover-nav-heading span {
+#root aside.global-hover-nav .global-hover-nav-heading span {
   color: #748197;
   font-size: .68rem;
 }
 
-.global-hover-nav nav {
+#root aside.global-hover-nav nav {
+  position: static;
   display: grid;
+  grid-template-columns: 1fr !important;
   gap: .2rem;
   padding: 0 !important;
 }
-.global-hover-nav nav::before { display: none !important; }
-.global-hover-nav nav button {
+#root aside.global-hover-nav nav::before { display: none !important; }
+#root aside.global-hover-nav nav button {
   min-height: 2.65rem !important;
   border: 0 !important;
   border-radius: .55rem !important;
@@ -127,14 +131,14 @@ html, body, #root {
   text-align: left;
   transition: background-color .16s ease, color .16s ease, transform .16s ease;
 }
-.global-hover-nav nav button::before,
-.global-hover-nav nav button::after { display: none !important; }
-.global-hover-nav nav button:hover {
+#root aside.global-hover-nav nav button::before,
+#root aside.global-hover-nav nav button::after { display: none !important; }
+#root aside.global-hover-nav nav button:hover {
   background: rgba(255,255,255,.06) !important;
   color: #fff !important;
   transform: translateX(2px);
 }
-.global-hover-nav nav button.is-active {
+#root aside.global-hover-nav nav button.is-active {
   background: rgba(91,108,249,.16) !important;
   color: #bdc5ff !important;
   box-shadow: inset 3px 0 0 #7c89ff;
@@ -194,7 +198,7 @@ html, body, #root {
     gap: .6rem;
   }
   .cost-table { min-width: 680px !important; }
-  .global-hover-nav {
+  #root aside.global-hover-nav {
     left: .65rem !important;
     bottom: .65rem !important;
     width: min(16.5rem, calc(100vw - 1.3rem)) !important;
@@ -202,5 +206,5 @@ html, body, #root {
 }
 
 @media print {
-  .global-hover-nav { display: none !important; }
+  #root aside.global-hover-nav { display: none !important; }
 }
