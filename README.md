@@ -1,73 +1,85 @@
 # E-WORKS Income Report
 
-Lightweight React + Vite + Tailwind finance dashboard built around only the **REFERENCE DATA** and **QB FILE** structures from the E-WORKS reference workbook.
+Lightweight React + Vite + Tailwind finance dashboard using the **E-WORKS REFERENCE DATA** Google workbook as the live source of truth.
+
+## Live data model
+
+The website reads these Google Sheets tabs directly at runtime:
+
+- `REFERENCE DATA` — project/SOF master data, contract values, status, and budgets.
+- `QB FILE` — the current QuickBooks transaction dataset used by Dashboard, Monthly Report, SOF Analysis, and Transactions.
+
+The app no longer depends on Supabase for finance data. Changes made directly in the Google workbook are picked up by the website on refresh (with a short server cache to avoid excessive Google API requests).
+
+## Upload behavior
+
+CSV/XLS/XLSX QuickBooks exports are parsed in the browser, then written to the same Google workbook through the server-side Google Sheets API integration.
+
+Each successful website upload:
+
+1. Replaces the contents of `QB FILE`, making the uploaded export the new live transaction source.
+2. Creates or replaces a physical dated worksheet named `QB M/D/YYYY` using the report date detected from the QuickBooks export.
+3. Refreshes the website from the Google Sheet after the write completes.
+
+The dated worksheet is an archive snapshot. Reports intentionally calculate from `QB FILE` only so cumulative QuickBooks exports are not double-counted across multiple dated worksheets.
 
 ## Features
 
-- QuickBooks CSV/XLS/XLSX import with automatic header and hierarchy detection.
-- Date-based QB batches named `QB M/D/YYYY`; re-uploading the same date replaces the batch.
+- Live Google Sheets-backed Dashboard.
+- QuickBooks CSV/XLS/XLSX import with automatic header, hierarchy, and SOF detection.
+- Physical Google worksheets for dated upload history.
 - Monthly end-of-month report with revenue, materials, labor, overhead, gross profit, margin, SOF breakdown, and review remarks.
-- SOF-level lifetime computations matched to Reference Data budgets.
-- All-transactions page and Reference Data page with 10-row pagination.
+- SOF-level lifetime computations matched against `REFERENCE DATA` budgets.
+- Transactions and Reference Data pages with 10-row pagination.
 - Separate pages for Dashboard, QB Upload, Monthly Report, SOF Analysis, Transactions, Reference Data, and QB Worksheets.
-- No application login screen. The dashboard opens directly and uses the Supabase publishable browser client.
-- Supabase RLS remains enabled on the IncomeReport tables, with browser permissions scoped to the operations required by the login-free app.
-- Minimal UI: restrained cards, compact tables, responsive sidebar, no decorative chart clutter.
-
-## Access model
-
-This deployment is intentionally login-free. Anyone who can reach the website can view the IncomeReport data exposed to the browser and use the enabled QB import actions. Do not place a Supabase `service_role` or secret key in the frontend; only the publishable browser key belongs in `VITE_SUPABASE_PUBLISHABLE_KEY`.
+- No application login screen.
+- Minimal responsive UI with compact tables and restrained financial cards.
 
 ## Stack
 
 - React 19 + Vite 8
 - Tailwind CSS 4
-- Supabase JS
+- Vercel Functions (`api/sheets.js`)
+- Google Sheets API
 - Papa Parse for CSV
 - SheetJS CE for Excel imports
-- Vercel-ready frontend
 
-## Environment
+## Google authorization
 
-The real local environment file is intentionally ignored by Git and is **not stored in GitHub**. Vercel holds the Supabase values for Production, Preview, and Development.
+The deployed Vercel function needs a Google service account that can read and edit the source workbook. The service-account email must be shared on the **E-WORKS REFERENCE DATA** workbook with **Editor** permission.
 
-After cloning or pulling the repo on a machine that is authorized for the `income-report` Vercel project, run:
+The server environment expects:
+
+```env
+GOOGLE_SHEETS_SPREADSHEET_ID=1FBsSwS7EAvRCYyBhSm0y9YqZL2NLaG25fODy4Ri-lVc
+GOOGLE_SERVICE_ACCOUNT_EMAIL=service-account@your-project.iam.gserviceaccount.com
+GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+```
+
+Alternatively, `GOOGLE_SERVICE_ACCOUNT_JSON` may contain the complete service-account JSON object instead of the email/private-key pair.
+
+These are server-only values. Do **not** prefix the service-account credentials with `VITE_`, and never commit the real key to GitHub.
+
+## Local development
+
+The real environment file remains gitignored. On a machine authorized for the Vercel project:
 
 ```bash
 npm install
 npx vercel link --yes
 npm run env:pull
-```
-
-That creates `.env.local` on your machine from the project's Vercel environment while keeping it out of GitHub. `.gitignore` already excludes `.env`, `.env.local`, and `.vercel`.
-
-The app expects:
-
-```env
-VITE_SUPABASE_URL=...
-VITE_SUPABASE_PUBLISHABLE_KEY=...
-VITE_APP_NAME=E-WORKS Income Report
-```
-
-## Local development
-
-```bash
-npm install
-npm run env:pull
 npm run dev
 ```
 
-## Database
+## Source workbook
 
-The live Supabase project contains the isolated `income_*` objects used by this app. The repository also contains `supabase/migrations/20261029_income_report.sql` as the base schema definition; it is designed not to modify the existing RFP tables.
+Spreadsheet ID: `1FBsSwS7EAvRCYyBhSm0y9YqZL2NLaG25fODy4Ri-lVc`
 
-Load the current E-WORKS `REFERENCE DATA` rows into `income_reference_projects` before using budget/reference comparisons.
+The application intentionally uses only the `REFERENCE DATA` and `QB FILE` structures for calculations. Other workbook tabs are not included in finance reporting, except physical `QB M/D/YYYY` tabs created by website uploads for archive/history.
 
-## Reference workbook integration
+## Legacy Supabase files
 
-The application data model is based on the connected **E-WORKS REFERENCE DATA** workbook's `REFERENCE DATA` and `QB FILE` sheets only. QB uploads are stored in Supabase as date-named virtual worksheets/batches.
-
-A Vercel-hosted browser cannot reuse ChatGPT's private Google Drive connector session. Direct write-back to the original Google Sheet therefore requires a Google service-account or OAuth integration. Until that credential is configured, `QB M/D/YYYY` means the Supabase batch/worksheet used by the website rather than a newly created physical tab in the source Google Sheet.
+The repository still contains the earlier `supabase/` migration for historical reference, but the current website finance data path reads and writes Google Sheets directly.
 
 ## UI/UX Pro Max
 
