@@ -1,68 +1,70 @@
 # E-WORKS Income Report
 
-Lightweight React + Vite + Tailwind finance dashboard using the **E-WORKS REFERENCE DATA** Google workbook as the live source of truth.
+Lightweight React + Vite + Tailwind finance dashboard with **Supabase as the permanent source of truth**.
 
-## Live data model
+## Data model
 
-The website reads these Google Sheets tabs directly at runtime:
+The website reads and writes the isolated `income_*` objects in Supabase. Google Sheets is no longer a runtime dependency.
 
-- `REFERENCE DATA` — project/SOF master data, contract values, status, and budgets.
-- `QB FILE` — the current QuickBooks transaction dataset used by Dashboard, Monthly Report, SOF Analysis, and Transactions.
+The initial source workbook migration was completed on October 29, 2026 from the E-WORKS REFERENCE DATA workbook. The migration included:
 
-The app no longer depends on Supabase for finance data. Changes made directly in the Google workbook are picked up by the website on refresh (with a short server cache to avoid excessive Google API requests).
+- `REFERENCE DATA` — normalized into `income_reference_projects`.
+- `QB FILE` — normalized into `income_qb_uploads` and `income_qb_transactions`.
+- hidden `Sheet1` — preserved as raw legacy/source history in `income_source_rows`.
+- `FORMAT` — intentionally excluded.
+
+Migration totals:
+
+- 195 structured reference/project rows.
+- 15,277 structured QuickBooks transactions.
+- 702 raw legacy/header/context rows preserved for audit/history.
+- 16,174 included non-empty source rows in total.
+
+The raw migration archive is internal and is not exposed to the browser client.
 
 ## Upload behavior
 
-CSV/XLS/XLSX QuickBooks exports are parsed in the browser, then written to the same Google workbook through the server-side Google Sheets API integration.
+CSV/XLS/XLSX QuickBooks exports are parsed in the browser and written directly to Supabase.
 
-Each successful website upload:
-
-1. Replaces the contents of `QB FILE`, making the uploaded export the new live transaction source.
-2. Creates or replaces a physical dated worksheet named `QB M/D/YYYY` using the report date detected from the QuickBooks export.
-3. Refreshes the website from the Google Sheet after the write completes.
-
-The dated worksheet is an archive snapshot. Reports intentionally calculate from `QB FILE` only so cumulative QuickBooks exports are not double-counted across multiple dated worksheets.
+Each upload is grouped by the detected report date using the logical batch name `QB M/D/YYYY`. Re-uploading the same report date replaces that Supabase batch through validated database RPCs so monthly reports do not double-count the same dated dataset.
 
 ## Features
 
-- Live Google Sheets-backed Dashboard.
+- Dashboard backed by migrated Supabase data.
 - QuickBooks CSV/XLS/XLSX import with automatic header, hierarchy, and SOF detection.
-- Physical Google worksheets for dated upload history.
 - Monthly end-of-month report with revenue, materials, labor, overhead, gross profit, margin, SOF breakdown, and review remarks.
-- SOF-level lifetime computations matched against `REFERENCE DATA` budgets.
+- SOF-level lifetime computations matched against Reference Data budgets.
 - Transactions and Reference Data pages with 10-row pagination.
 - Separate pages for Dashboard, QB Upload, Monthly Report, SOF Analysis, Transactions, Reference Data, and QB Worksheets.
 - No application login screen.
 - Minimal responsive UI with compact tables and restrained financial cards.
 
+## Access model
+
+The site is intentionally login-free. Anyone who can reach the website can view the finance data exposed by its browser RLS policies and use the enabled QB upload workflow.
+
+Supabase RLS remains enabled. Reference and reporting data are read-only from the browser. QB upload metadata replacement is handled through validated `SECURITY DEFINER` RPCs, while transaction rows are inserted in controlled browser-side chunks. No Supabase service-role key is stored in the frontend or repository.
+
 ## Stack
 
 - React 19 + Vite 8
 - Tailwind CSS 4
-- Vercel Functions (`api/sheets.js`)
-- Google Sheets API
+- Supabase JS / PostgreSQL
 - Papa Parse for CSV
 - SheetJS CE for Excel imports
+- Vercel deployment
 
-## Google authorization
+## Environment
 
-The deployed Vercel function needs a Google service account that can read and edit the source workbook. The service-account email must be shared on the **E-WORKS REFERENCE DATA** workbook with **Editor** permission.
-
-The server environment expects:
+The real local environment file is gitignored and is not stored in GitHub. Vercel holds the required values for Production, Preview, and Development.
 
 ```env
-GOOGLE_SHEETS_SPREADSHEET_ID=1FBsSwS7EAvRCYyBhSm0y9YqZL2NLaG25fODy4Ri-lVc
-GOOGLE_SERVICE_ACCOUNT_EMAIL=service-account@your-project.iam.gserviceaccount.com
-GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
+VITE_APP_NAME=E-WORKS Income Report
 ```
 
-Alternatively, `GOOGLE_SERVICE_ACCOUNT_JSON` may contain the complete service-account JSON object instead of the email/private-key pair.
-
-These are server-only values. Do **not** prefix the service-account credentials with `VITE_`, and never commit the real key to GitHub.
-
-## Local development
-
-The real environment file remains gitignored. On a machine authorized for the Vercel project:
+After cloning or pulling the repo on a machine authorized for the Vercel project:
 
 ```bash
 npm install
@@ -71,15 +73,19 @@ npm run env:pull
 npm run dev
 ```
 
-## Source workbook
+## Database migrations
 
-Spreadsheet ID: `1FBsSwS7EAvRCYyBhSm0y9YqZL2NLaG25fODy4Ri-lVc`
+The repository contains the isolated IncomeReport database migrations under `supabase/migrations/`:
 
-The application intentionally uses only the `REFERENCE DATA` and `QB FILE` structures for calculations. Other workbook tabs are not included in finance reporting, except physical `QB M/D/YYYY` tabs created by website uploads for archive/history.
+- `20261029_income_report.sql` — base IncomeReport tables, views, reporting functions, and RLS.
+- `20261029_source_archive.sql` — source migration/archive tables and source lineage columns.
+- `20261029_secure_public_upload.sql` — validated login-free QB upload RPCs and browser permissions.
 
-## Legacy Supabase files
+These migrations are designed around the `income_*` namespace and do not modify the existing RFP application tables.
 
-The repository still contains the earlier `supabase/` migration for historical reference, but the current website finance data path reads and writes Google Sheets directly.
+## Google source workbook
+
+The original E-WORKS workbook was used only for the completed one-time migration. Future website uploads land in Supabase and do not require Google service-account credentials.
 
 ## UI/UX Pro Max
 
