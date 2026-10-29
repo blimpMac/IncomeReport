@@ -1,0 +1,222 @@
+/* Final responsive containment pass. Keep wide finance content inside the viewport. */
+html, body, #root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+#root main {
+  box-sizing: border-box;
+  width: min(100%, 1500px) !important;
+  max-width: 1500px !important;
+  min-width: 0 !important;
+  margin-inline: auto !important;
+  overflow-x: clip !important;
+  padding-bottom: 5.5rem !important;
+}
+
+#root main > *,
+#root main section,
+#root main .grid,
+#root main .shadow-sm {
+  min-width: 0 !important;
+  max-width: 100%;
+}
+
+#root main select,
+#root main input,
+#root main label {
+  max-width: 100%;
+}
+
+.scrollbar-thin,
+.cost-table-wrap,
+#root main .overflow-x-auto {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto !important;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cost-comparison-section {
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden !important;
+}
+
+.cost-table {
+  width: 100%;
+  min-width: 900px !important;
+}
+
+.cost-table th,
+.cost-table td {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.cost-table th:last-child,
+.cost-table td:last-child {
+  width: 25%;
+  min-width: 220px;
+}
+
+/* Compact hover/focus SOF report action launcher. */
+.sof-print-actions {
+  position: fixed !important;
+  right: clamp(.75rem, 2vw, 1.5rem) !important;
+  bottom: clamp(.75rem, 2vw, 1.5rem) !important;
+  z-index: 80 !important;
+  display: block !important;
+  width: auto !important;
+  max-width: calc(100vw - 1.5rem) !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+.sof-actions-trigger {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-width: 8.8rem;
+  min-height: 2.7rem;
+  align-items: center;
+  justify-content: center;
+  gap: .55rem;
+  border: 1px solid #dce2eb;
+  border-radius: .75rem;
+  padding: .65rem .9rem;
+  background: rgba(255,255,255,.97);
+  color: #334155;
+  box-shadow: 0 10px 28px rgba(15,23,42,.14);
+  font-size: .78rem;
+  font-weight: 750;
+  backdrop-filter: blur(12px);
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.sof-actions-trigger:hover,
+.sof-print-actions:focus-within .sof-actions-trigger {
+  border-color: #bcc6d4;
+  box-shadow: 0 12px 32px rgba(15,23,42,.18);
+  transform: translateY(-1px);
+}
+
+.sof-actions-chevron {
+  display: inline-block;
+  font-size: .9rem;
+  transition: transform .22s ease;
+}
+
+.sof-print-actions:hover .sof-actions-chevron,
+.sof-print-actions:focus-within .sof-actions-chevron {
+  transform: rotate(180deg);
+}
+
+.sof-action-items {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + .5rem);
+  display: flex;
+  width: max-content;
+  min-width: 9.5rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: .42rem;
+  pointer-events: none;
+}
+
+.sof-action-items button {
+  width: 100%;
+  min-width: 9.5rem;
+  min-height: 2.55rem;
+  margin: 0;
+  opacity: 0;
+  transform: translateY(16px) scale(.98);
+  pointer-events: none;
+  box-shadow: 0 8px 20px rgba(15,23,42,.11) !important;
+  transition: opacity .18s ease, transform .22s cubic-bezier(.2,.75,.25,1), box-shadow .16s ease;
+}
+
+/* Closing sequence: top to bottom. */
+.sof-action-items .sof-print-button { transition-delay: 0s; }
+.sof-action-items .sof-pdf-button { transition-delay: .045s; }
+.sof-action-items .sof-xlsx-button { transition-delay: .09s; }
+
+.sof-print-actions:hover .sof-action-items button,
+.sof-print-actions:focus-within .sof-action-items button {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+}
+
+/* Opening sequence: bottom to top. */
+.sof-print-actions:hover .sof-action-items .sof-xlsx-button,
+.sof-print-actions:focus-within .sof-action-items .sof-xlsx-button { transition-delay: 0s; }
+.sof-print-actions:hover .sof-action-items .sof-pdf-button,
+.sof-print-actions:focus-within .sof-action-items .sof-pdf-button { transition-delay: .045s; }
+.sof-print-actions:hover .sof-action-items .sof-print-button,
+.sof-print-actions:focus-within .sof-action-items .sof-print-button { transition-delay: .09s; }
+
+@media (max-width: 1200px) {
+  #root main {
+    padding-inline: 1rem !important;
+  }
+  .cost-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 767px) {
+  #root main {
+    padding: .85rem .75rem 5.25rem !important;
+  }
+
+  #root main > div.mb-5,
+  #root main > div.mb-4 {
+    max-width: 100%;
+  }
+
+  .cost-comparison-title {
+    padding: .85rem 1rem !important;
+  }
+
+  .cost-stat-grid {
+    grid-template-columns: 1fr !important;
+    padding: .75rem !important;
+  }
+
+  .cost-table {
+    min-width: 780px !important;
+  }
+
+  .sof-actions-trigger {
+    min-width: 3rem;
+    width: 3rem;
+    padding-inline: .6rem;
+  }
+
+  .sof-actions-trigger span:first-child {
+    display: none;
+  }
+
+  .sof-action-items {
+    min-width: 8.8rem;
+  }
+
+  .sof-action-items button {
+    min-width: 8.8rem;
+  }
+}
+
+@media print {
+  .sof-print-actions { display: none !important; }
+  #root main {
+    padding-bottom: 0 !important;
+    overflow: visible !important;
+  }
+}
