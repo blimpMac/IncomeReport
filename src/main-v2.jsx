@@ -5,6 +5,7 @@ import DashboardPage from './DashboardPage.jsx'
 import SofReport from './SofReport.jsx'
 import CostComparisonPage from './CostComparisonPage.jsx'
 import DataUpload from './DataUpload.jsx'
+import ReferenceDataPage from './ReferenceDataPage.jsx'
 import './index.css'
 import './hide-source-status.css'
 import './sof-print.css'
@@ -113,6 +114,7 @@ function RootRouter() {
   else if (page === 'sof') content = <><SofActions /><SofReport /></>
   else if (page === 'costcompare') content = <CostComparisonPage />
   else if (page === 'upload') content = <RouteShell active="upload"><DataUpload /></RouteShell>
+  else if (page === 'reference') content = <RouteShell active="reference"><ReferenceDataPage /></RouteShell>
   else content = <App />
 
   return <><SidebarCostLink />{content}</>
