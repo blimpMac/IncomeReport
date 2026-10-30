@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
+import DashboardPage from './DashboardPage.jsx'
 import SofReport from './SofReport.jsx'
 import CostComparisonPage from './CostComparisonPage.jsx'
 import DataUpload from './DataUpload.jsx'
@@ -108,7 +109,8 @@ function RootRouter() {
 
   const page = hash.replace(/^#\/?/, '')
   let content
-  if (page === 'sof') content = <><SofActions /><SofReport /></>
+  if (page === 'dashboard') content = <DashboardPage />
+  else if (page === 'sof') content = <><SofActions /><SofReport /></>
   else if (page === 'costcompare') content = <CostComparisonPage />
   else if (page === 'upload') content = <RouteShell active="upload"><DataUpload /></RouteShell>
   else content = <App />
