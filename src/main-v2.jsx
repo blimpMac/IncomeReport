@@ -14,6 +14,7 @@ import './cost-comparison.css'
 import './responsive-fixes.css'
 import './costcompare-layout.css'
 import './hover-action-fix.css'
+import './reference-layout.css'
 
 const NAV = [
   ['dashboard', 'Dashboard'],
@@ -96,7 +97,7 @@ function RouteShell({ children, active = 'upload' }) {
     <aside className={`${open ? 'block' : 'hidden'} fixed left-0 top-16 z-50 h-[calc(100vh-4rem)] w-64 border-r border-slate-200 bg-[#171d2c] p-3 text-white shadow-xl`}>
       <nav className="space-y-1">{NAV.map(([id, label]) => <button key={id} onClick={() => go(id)} className={`w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium ${active === id ? 'bg-white text-slate-900' : 'text-slate-300 hover:bg-white/10 hover:text-white'}`}>{label}</button>)}</nav>
     </aside>
-    <main className="mx-auto w-full max-w-[1500px] p-4 lg:p-6 xl:p-8">{children}</main>
+    <main className="mx-auto w-full min-w-0 max-w-[1500px] overflow-x-hidden p-4 lg:p-6 xl:p-8">{children}</main>
   </div>
 }
 
@@ -114,7 +115,7 @@ function RootRouter() {
   else if (page === 'sof') content = <><SofActions /><SofReport /></>
   else if (page === 'costcompare') content = <CostComparisonPage />
   else if (page === 'upload') content = <RouteShell active="upload"><DataUpload /></RouteShell>
-  else if (page === 'reference') content = <RouteShell active="reference"><ReferenceDataPage /></RouteShell>
+  else if (page === 'reference') content = <RouteShell active="reference"><div className="reference-route"><ReferenceDataPage /></div></RouteShell>
   else content = <App />
 
   return <><SidebarCostLink />{content}</>
