@@ -201,15 +201,28 @@ function buildRegister(summaries, references) {
 
   return [...new Set([...summaryByBase.keys(), ...refByBase.keys()])].sort((a, b) => a - b).map(base => {
     const refs = refByBase.get(base) || []
-    const primary = [...refs].sort((a, b) => {
-      const ae = String(a.sof_base || '') === String(base) ? 1 : 0
-      const be = String(b.sof_base || '') === String(base) ? 1 : 0
-      if (ae !== be) return be - ae
-      return num(a.source_row) - num(b.source_row)
-    })[0] || null
+    // One parent SOF includes its own VO, variation, and extension rows.
+    // Ignore exact duplicate records, and avoid assigning shared reference
+    // amounts (e.g. 117-118) to more than one SOF.
+    const seen = new Set()
+    const distinctRefs = refs.filter(item => {
+      const value = num(item.final_contract_value) > 0 ? num(item.final_contract_value) : num(item.contract_value)
+      const identity = [clean(item.sof_number).toUpperCase(), clean(item.project_name), value,
+        num(item.total_cost_budget), clean(item.project_status)].join('|')
+      if (seen.has(identity)) return false
+      seen.add(identity)
+      return true
+    })
+    const primary = distinctRefs.find(item =>
+      clean(item.sof_number).replace(/^SOF[\s:_-]*/i,'') === String(base)
+    ) || distinctRefs.find(item => clean(item.project_name)) || distinctRefs[0] || null
+    const exclusive = distinctRefs.filter(item => refBases(item).length === 1)
+    const amountRefs = exclusive.length ? exclusive : (primary ? [primary] : [])
     const summary = summaryByBase.get(base) || { transaction_count: 0, revenue: 0, materials: 0, labor: 0, overhead: 0, other_cost: 0, total_cost: 0, gross_profit: 0 }
-    const contract = num(primary?.final_contract_value) > 0 ? num(primary?.final_contract_value) : num(primary?.contract_value)
-    const budget = num(primary?.total_cost_budget)
+    const contract = amountRefs.reduce((total,item) =>
+      total + (num(item.final_contract_value) > 0 ? num(item.final_contract_value) : num(item.contract_value)), 0)
+    const budget = amountRefs.reduce((total,item) =>
+      total + (num(item.total_cost_budget) || (num(item.materials_budget) + num(item.labor_budget) + num(item.overhead_budget))),0)
     const progress = clamp(primary?.actual_pct)
     return {
       ...summary,
@@ -226,6 +239,7 @@ function buildRegister(summaries, references) {
       actual_pct: progress,
       contract_value: contract,
       total_cost_budget: budget,
+      variation_count: Math.max(0, amountRefs.length - 1),
       estimate_gross_profit: contract - budget,
       remarks: [...new Set(refs.map(x => clean(x.remarks)).filter(Boolean))].join(' • '),
       source_modified_at: primary?.source_modified_at || refs.find(x => x.source_modified_at)?.source_modified_at || null,
@@ -326,7 +340,7 @@ function SofReportBody() {
 
     <div className="mt-6 mb-3 text-lg font-extrabold uppercase tracking-wide text-[#17578d]">Project <span className="text-emerald-600">Financial & Progress Summary</span></div>
     <div className="grid gap-3 xl:grid-cols-4">
-      <SummaryBlock title="SOF Based" subtitle="Estimates" tone="blue" rows={estimateRows} />
+      <SummaryBlock title="SOF Based" subtitle={row.variation_count ? "Estimates incl. VOs / extensions" : "Estimates"} tone="blue" rows={estimateRows} />
       <SummaryBlock title="Based on actual progress of work" subtitle="PM progress record" tone="green" rows={progressRows} />
       <SummaryBlock title="Actual finance record" subtitle="QuickBooks" tone="cyan" rows={actualRows} />
       <SummaryBlock title="Variance vs. progress" subtitle="Actual less progress estimate" tone="teal" rows={varianceRows} />
