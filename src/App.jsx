@@ -88,9 +88,9 @@ function Pager({ page, total, setPage }) {
     <div className="flex items-center gap-2"><Button secondary disabled={!page} onClick={() => setPage(page - 1)}>Previous</Button><span className="whitespace-nowrap">{page + 1}/{pages}</span><Button secondary disabled={page + 1 >= pages} onClick={() => setPage(page + 1)}>Next</Button></div>
   </div>
 }
-function Table({ heads, rows, row, minWidth = 680 }) {
+function Table({ heads, rows, row, minWidth = 680, compact = false }) {
   return <div className="scrollbar-thin w-full max-w-full overflow-x-auto overscroll-x-contain">
-    <table className="finance-table w-full text-left text-sm" style={{ minWidth }}>
+    <table className={`finance-table w-full text-left text-sm ${compact ? "transactions-compact-table" : ""}`} style={{ minWidth }}>
       <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr>{heads.map(x => <th key={x} className={`px-3 py-3 font-medium ${x === 'Debit' || x === 'Credit' ? 'whitespace-nowrap text-right' : ''}`}>{x}</th>)}</tr></thead>
       <tbody className="divide-y divide-slate-100">{rows.map(row)}</tbody>
     </table>
@@ -514,7 +514,7 @@ function PagedTable({ kind }) {
   return <>
     <Header title={title} sub={sub} actions={kind === 'worksheets' ? <Button onClick={() => go('upload')}>New upload</Button> : null} />
     <ErrorBox v={err} />
-    <Card><Table minWidth={minWidth} heads={heads} rows={rows} row={row} /><Pager page={page} total={total} setPage={setPage} /></Card>
+    <Card><Table compact={kind === 'transactions'} minWidth={minWidth} heads={heads} rows={rows} row={row} /><Pager page={page} total={total} setPage={setPage} /></Card>
   </>
 }
 
