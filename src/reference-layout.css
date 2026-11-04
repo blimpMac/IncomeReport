@@ -73,11 +73,11 @@
 }
 
 .reference-route table:has(th:nth-child(12)) th:nth-child(1),
-.reference-route table:has(th:nth-child(12)) td:nth-child(1) { width: 7%; }
+.reference-route table:has(th:nth-child(12)) td:nth-child(1) { width: 9%; }
 .reference-route table:has(th:nth-child(12)) th:nth-child(2),
-.reference-route table:has(th:nth-child(12)) td:nth-child(2) { width: 11%; }
+.reference-route table:has(th:nth-child(12)) td:nth-child(2) { width: 10%; }
 .reference-route table:has(th:nth-child(12)) th:nth-child(3),
-.reference-route table:has(th:nth-child(12)) td:nth-child(3) { width: 9%; }
+.reference-route table:has(th:nth-child(12)) td:nth-child(3) { width: 8%; }
 .reference-route table:has(th:nth-child(12)) th:nth-child(4),
 .reference-route table:has(th:nth-child(12)) td:nth-child(4) { width: 7%; }
 .reference-route table:has(th:nth-child(12)) th:nth-child(5),
