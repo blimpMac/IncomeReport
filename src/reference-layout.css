@@ -68,16 +68,16 @@
 /* SOF Financial Register: twelve compact columns with two GP percentages.
    The table scrolls inside its own card on narrow screens, not across the page. */
 .reference-route table:has(th:nth-child(12)) {
-  min-width: 1200px !important;
+  min-width: 1580px !important;
   table-layout: fixed;
 }
 
 .reference-route table:has(th:nth-child(12)) th:nth-child(1),
-.reference-route table:has(th:nth-child(12)) td:nth-child(1) { width: 9%; }
+.reference-route table:has(th:nth-child(12)) td:nth-child(1) { width: 7%; }
 .reference-route table:has(th:nth-child(12)) th:nth-child(2),
-.reference-route table:has(th:nth-child(12)) td:nth-child(2) { width: 10%; }
+.reference-route table:has(th:nth-child(12)) td:nth-child(2) { width: 12%; }
 .reference-route table:has(th:nth-child(12)) th:nth-child(3),
-.reference-route table:has(th:nth-child(12)) td:nth-child(3) { width: 8%; }
+.reference-route table:has(th:nth-child(12)) td:nth-child(3) { width: 9%; }
 .reference-route table:has(th:nth-child(12)) th:nth-child(4),
 .reference-route table:has(th:nth-child(12)) td:nth-child(4) { width: 7%; }
 .reference-route table:has(th:nth-child(12)) th:nth-child(5),
@@ -95,7 +95,7 @@
 .reference-route table:has(th:nth-child(12)) th:nth-child(11),
 .reference-route table:has(th:nth-child(12)) td:nth-child(11) { width: 8%; }
 .reference-route table:has(th:nth-child(12)) th:nth-child(12),
-.reference-route table:has(th:nth-child(12)) td:nth-child(12) { width: 6%; }
+.reference-route table:has(th:nth-child(12)) td:nth-child(12) { width: 5%; }
 
 .reference-route table:has(th:nth-child(12)) td:nth-child(n+5) {
   font-variant-numeric: tabular-nums;
@@ -147,6 +147,6 @@
 
 @media (max-width: 1180px) {
   .reference-route table:has(th:nth-child(12)) {
-    min-width: 1200px !important;
+    min-width: 1580px !important;
   }
 }
