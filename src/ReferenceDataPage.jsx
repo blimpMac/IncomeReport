@@ -288,10 +288,14 @@ export default function ReferenceDataPage() {
             <tr className="hover:bg-slate-50/70">
               <td className="px-3 py-3 font-bold text-indigo-700">
                 <div>{row.sof}</div>
-                {row.members.length > 1 && <button type="button" aria-expanded={expanded.includes(row.groupKey)}
+                {row.members.length > 1 && <button type="button"
+                  aria-expanded={expanded.includes(row.groupKey)}
+                  aria-label={`${expanded.includes(row.groupKey) ? 'Hide' : 'Show'} ${row.members.length - 1} VO or extension entries for ${row.sof}`}
+                  title={`${expanded.includes(row.groupKey) ? 'Hide' : 'View'} ${row.members.length - 1} VO / extension entries`}
                   onClick={() => toggleExpanded(row.groupKey)}
-                  className="mt-1 rounded border border-indigo-100 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100">
-                  {expanded.includes(row.groupKey) ? 'Hide' : 'View'} {row.members.length - 1} VO/extension{row.members.length === 2 ? '' : 's'}
+                  className="mt-1 inline-flex h-5 items-center gap-1 whitespace-nowrap rounded border border-indigo-200 bg-indigo-50 px-1.5 text-[10px] font-semibold leading-none text-indigo-700 hover:bg-indigo-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500">
+                  <span aria-hidden="true">{expanded.includes(row.groupKey) ? '▾' : '▸'}</span>
+                  <span>{row.members.length - 1}</span>
                 </button>}
               </td>
               <td className="px-3 py-3 font-medium text-slate-800">{row.project}</td>
