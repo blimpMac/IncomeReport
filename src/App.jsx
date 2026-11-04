@@ -91,7 +91,7 @@ function Pager({ page, total, setPage }) {
 function Table({ heads, rows, row, minWidth = 680 }) {
   return <div className="scrollbar-thin w-full max-w-full overflow-x-auto overscroll-x-contain">
     <table className="finance-table w-full text-left text-sm" style={{ minWidth }}>
-      <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr>{heads.map(x => <th key={x} className="px-3 py-3 font-medium">{x}</th>)}</tr></thead>
+      <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr>{heads.map(x => <th key={x} className={`px-3 py-3 font-medium ${x === 'Debit' || x === 'Credit' ? 'whitespace-nowrap text-right' : ''}`}>{x}</th>)}</tr></thead>
       <tbody className="divide-y divide-slate-100">{rows.map(row)}</tbody>
     </table>
     {!rows.length && <div className="p-8 text-center text-sm text-slate-500">No data found.</div>}
@@ -288,7 +288,7 @@ function Dashboard() {
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><Stat label="Revenue" value={money(r?.revenue)} tone="emerald" /><Stat label="Total Cost" value={money(r?.total_cost)} tone="amber" /><Stat label="Gross Profit" value={money(r?.gross_profit)} note={`Margin ${pct(r?.margin_pct)}`} tone={grossTone} /><Stat label="Active SOFs" value={number(r?.unique_sof)} note={`${number(r?.unassigned_count)} unassigned`} tone="indigo" /></div>
     <div className="mt-5 grid min-w-0 gap-5 xl:grid-cols-2"><CostMixChart report={r} periodLabel={period} /><TopSofChart rows={sofRows} periodLabel={period} /></div>
     <div className="mt-5 grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_440px]">
-      <Card><div className="border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-semibold">{period} transactions</h2><p className="mt-1 text-xs text-slate-500">Most recent QuickBooks activity within the selected month</p></div><Table minWidth={620} heads={['Date','SOF','Type','Account','Debit','Credit']} rows={tx} row={x => <tr key={x.id}><td className="px-3 py-3 whitespace-nowrap">{shortDate(x.transaction_date)}</td><td className="px-3 py-3 font-medium">{displaySof(x)}</td><td className="px-3 py-3 break-words">{x.type}</td><td className="px-3 py-3 break-words">{x.account || '—'}</td><td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{money(x.debit)}</td><td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{money(x.credit)}</td></tr>} /></Card>
+      <Card><div className="border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-semibold">{period} transactions</h2><p className="mt-1 text-xs text-slate-500">Most recent QuickBooks activity within the selected month</p></div><Table minWidth={750} heads={['Date','SOF','Type','Account','Debit','Credit']} rows={tx} row={x => <tr key={x.id}><td className="px-3 py-3 whitespace-nowrap">{shortDate(x.transaction_date)}</td><td className="px-3 py-3 font-medium">{displaySof(x)}</td><td className="px-3 py-3 break-words">{x.type}</td><td className="px-3 py-3 break-words">{x.account || '—'}</td><td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{money(x.debit)}</td><td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{money(x.credit)}</td></tr>} /></Card>
       <RemarksPanel report={r} sofRows={sofRows} title={`${period} management remarks`} />
     </div>
   </>
@@ -312,7 +312,7 @@ function Upload() {
     <ErrorBox v={err} />
     {msg && <div className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">{msg}</div>}
     <Card className="p-5"><label className="block rounded-xl border-2 border-dashed p-8 text-center"><input hidden type="file" accept=".csv,.xlsx,.xls" onChange={choose} /><b>{busy && !p ? 'Reading file…' : 'Choose QuickBooks export'}</b><div className="mt-1 text-sm text-slate-500">CSV, XLSX or XLS</div></label></Card>
-    {p && <Card className="mt-5"><div className="grid gap-4 border-b p-4 sm:grid-cols-2 xl:grid-cols-4"><div><small>Worksheet</small><b className="block break-words">{p.sheetName}</b></div><div><small>Report date</small><b className="block">{shortDate(p.reportDate)}</b></div><div><small>Transactions</small><b className="block">{number(p.transactions.length)}</b></div><Button disabled={busy} onClick={send}>{busy ? `Uploading ${progress}%` : 'Import now'}</Button></div><Table minWidth={660} heads={['Date','SOF','Type','Account / Category','Debit','Credit']} rows={p.transactions.slice(0, 10)} row={x => <tr key={x.source_row}><td className="px-3 py-3 whitespace-nowrap">{shortDate(x.transaction_date)}</td><td className="px-3 py-3 font-medium">{displaySof(x)}</td><td className="px-3 py-3 break-words">{x.type}</td><td className="px-3 py-3 break-words"><div>{x.account || '—'}</div><div className="text-xs text-slate-500">{x.category}</div></td><td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{money(x.debit)}</td><td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{money(x.credit)}</td></tr>} /></Card>}
+    {p && <Card className="mt-5"><div className="grid gap-4 border-b p-4 sm:grid-cols-2 xl:grid-cols-4"><div><small>Worksheet</small><b className="block break-words">{p.sheetName}</b></div><div><small>Report date</small><b className="block">{shortDate(p.reportDate)}</b></div><div><small>Transactions</small><b className="block">{number(p.transactions.length)}</b></div><Button disabled={busy} onClick={send}>{busy ? `Uploading ${progress}%` : 'Import now'}</Button></div><Table minWidth={760} heads={['Date','SOF','Type','Account / Category','Debit','Credit']} rows={p.transactions.slice(0, 10)} row={x => <tr key={x.source_row}><td className="px-3 py-3 whitespace-nowrap">{shortDate(x.transaction_date)}</td><td className="px-3 py-3 font-medium">{displaySof(x)}</td><td className="px-3 py-3 break-words">{x.type}</td><td className="px-3 py-3 break-words"><div>{x.account || '—'}</div><div className="text-xs text-slate-500">{x.category}</div></td><td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{money(x.debit)}</td><td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{money(x.credit)}</td></tr>} /></Card>}
   </>
 }
 
@@ -502,6 +502,7 @@ function PagedTable({ kind }) {
     title = 'Transactions'
     sub = 'All QuickBooks transactions, 10 rows per page.'
     heads = ['Date','SOF','Type / Name','Account','Category','Debit','Credit']
+    minWidth = 860
     row = x => <tr key={x.id}><td className="px-3 py-3 whitespace-nowrap">{shortDate(x.transaction_date)}</td><td className="px-3 py-3 font-medium">{displaySof(x)}</td><td className="px-3 py-3 break-words"><div>{x.type || '—'}</div><div className="text-xs text-slate-500">{x.name || '—'}</div></td><td className="px-3 py-3 break-words">{x.account || '—'}</td><td className="px-3 py-3">{x.category}</td><td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{money(x.debit)}</td><td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{money(x.credit)}</td></tr>
   } else {
     title = 'QB Worksheets'
