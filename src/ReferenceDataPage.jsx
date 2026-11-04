@@ -288,7 +288,7 @@ export default function ReferenceDataPage() {
         </div>
       </div>
       <div className="w-full overflow-x-auto overscroll-x-contain">
-        <table className="w-full min-w-[1200px] text-left text-sm">
+        <table className="sof-register-table w-full min-w-[1200px] text-left text-sm">
           <thead className="sticky top-0 bg-slate-50 text-[10px] uppercase tracking-[0.04em] text-slate-500">
             <tr>
               <th className="px-3 py-3">SOF #</th><th className="px-3 py-3">Project</th><th className="px-3 py-3">Client</th><th className="px-3 py-3">Status</th>
@@ -299,15 +299,17 @@ export default function ReferenceDataPage() {
           <tbody className="divide-y divide-slate-100">{visible.map(row => <React.Fragment key={row.groupKey}>
             <tr className="hover:bg-slate-50/70">
               <td className="px-3 py-3 font-bold text-indigo-700">
-                <div>{row.sof}</div>
-                {row.members.length > 1 && <button type="button"
-                  aria-expanded={expanded.includes(row.groupKey)}
-                  aria-label={`${expanded.includes(row.groupKey) ? 'Hide' : 'Show'} ${row.members.length - 1} VO or extension entries for ${row.sof}`}
-                  title={`${expanded.includes(row.groupKey) ? 'Hide' : 'View'} ${row.members.length - 1} VO / extension entries`}
-                  onClick={() => toggleExpanded(row.groupKey)}
-                  className="vo-toggle mt-1.5 inline-flex h-8 min-w-[76px] items-center justify-center whitespace-nowrap rounded-md border border-blue-700 bg-blue-600 px-2.5 text-[11px] font-bold leading-none text-white transition-colors hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500">
-                  <span>{expanded.includes(row.groupKey) ? 'HIDE VO' : 'VIEW VO'}</span>
-                </button>}
+                <div className="sof-register-sof-group">
+                  <span className="sof-register-sof-number">{row.sof}</span>
+                  {row.members.length > 1 && <button type="button"
+                    aria-expanded={expanded.includes(row.groupKey)}
+                    aria-label={`${expanded.includes(row.groupKey) ? 'Hide' : 'Show'} ${row.members.length - 1} VO or extension entries for ${row.sof}`}
+                    title={`${expanded.includes(row.groupKey) ? 'Hide' : 'View'} ${row.members.length - 1} VO / extension entries`}
+                    onClick={() => toggleExpanded(row.groupKey)}
+                    className="vo-toggle inline-flex h-8 items-center justify-center whitespace-nowrap rounded-md border border-blue-700 bg-blue-600 px-2.5 text-[11px] font-bold leading-none text-white transition-colors hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500">
+                    {expanded.includes(row.groupKey) ? 'HIDE VO' : 'VIEW VO'}
+                  </button>}
+                </div>
               </td>
               <td className="px-3 py-3 font-medium text-slate-800">{row.project}</td>
               <td className="px-3 py-3 text-slate-600">{row.client}</td>
