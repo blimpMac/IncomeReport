@@ -293,7 +293,7 @@ export default function ReferenceDataPage() {
                   aria-label={`${expanded.includes(row.groupKey) ? 'Hide' : 'Show'} ${row.members.length - 1} VO or extension entries for ${row.sof}`}
                   title={`${expanded.includes(row.groupKey) ? 'Hide' : 'View'} ${row.members.length - 1} VO / extension entries`}
                   onClick={() => toggleExpanded(row.groupKey)}
-                  className="mt-1 inline-flex h-5 items-center justify-center whitespace-nowrap rounded border border-indigo-200 bg-indigo-50 px-1.5 text-[10px] font-semibold leading-none text-indigo-700 hover:bg-indigo-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-500">
+                  className="mt-1.5 inline-flex h-8 min-w-[76px] items-center justify-center whitespace-nowrap rounded-md border border-blue-700 bg-blue-600 px-2.5 text-[11px] font-bold leading-none text-white shadow-sm transition-colors hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500">
                   <span>{expanded.includes(row.groupKey) ? 'HIDE VO' : 'VIEW VO'}</span>
                 </button>}
               </td>
