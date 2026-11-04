@@ -208,3 +208,64 @@
   .responsive-table-host { container-type: normal !important; }
   table.responsive-record-table { min-width: 0 !important; }
 }
+
+/* SOF Financial Register: keep VIEW VO on the SOF number line.
+   Scoped to this table; other finance tables keep their own layout. */
+@media screen {
+  #root main .reference-route .sof-register-sof-group {
+    display: flex;
+    min-width: 0;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .35rem .5rem;
+  }
+
+  #root main .reference-route .sof-register-sof-number {
+    display: inline-block;
+    flex: 0 0 auto;
+    color: #4338ca;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  #root main .reference-route .sof-register-table button.vo-toggle {
+    flex: 0 0 auto;
+    margin-top: 0 !important;
+    min-height: 2rem !important;
+    min-width: 5.25rem !important;
+    white-space: nowrap !important;
+  }
+
+  #root main .reference-route .sof-register-table td {
+    vertical-align: middle !important;
+  }
+}
+
+/* Only assign table column widths while the table is in desktop mode.
+   At narrower component widths, the full labeled-card layout takes over. */
+@container finance-table (min-width: 1121px) {
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] th:nth-child(1),
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] td:nth-child(1) { width: 15% !important; }
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] th:nth-child(2),
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] td:nth-child(2) { width: 12% !important; }
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] th:nth-child(3),
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] td:nth-child(3) { width: 8% !important; }
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] th:nth-child(4),
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] td:nth-child(4) { width: 7% !important; }
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] th:nth-child(5),
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] td:nth-child(5) { width: 9% !important; }
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] th:nth-child(6),
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] td:nth-child(6) { width: 8% !important; }
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] th:nth-child(7),
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] td:nth-child(7) { width: 8% !important; }
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] th:nth-child(8),
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] td:nth-child(8) { width: 5% !important; }
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] th:nth-child(9),
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] td:nth-child(9) { width: 8% !important; }
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] th:nth-child(10),
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] td:nth-child(10) { width: 8% !important; }
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] th:nth-child(11),
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] td:nth-child(11) { width: 7% !important; }
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] th:nth-child(12),
+  #root main .reference-route table.sof-register-table.responsive-record-table[data-column-count="12"] td:nth-child(12) { width: 5% !important; }
+}
