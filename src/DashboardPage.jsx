@@ -181,9 +181,9 @@ function Remarks({ report, sofRows, scope }) {
 function Transactions({ rows, scope }) {
   return <Card>
     <div className="border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-semibold">Recent transactions</h2><p className="mt-1 text-xs text-slate-500">Latest QuickBooks activity · {scope}</p></div>
-    <div className="w-full max-w-full overflow-x-auto"><table className="w-full min-w-[680px] text-left text-sm">
-      <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-3 py-3">Date</th><th className="px-3 py-3">SOF</th><th className="px-3 py-3">Type</th><th className="px-3 py-3">Account</th><th className="px-3 py-3">Debit / Credit</th></tr></thead>
-      <tbody className="divide-y divide-slate-100">{rows.map(row => <tr key={row.id}><td className="whitespace-nowrap px-3 py-3">{shortDate(row.transaction_date)}</td><td className="px-3 py-3 font-medium">{displaySof(row)}</td><td className="px-3 py-3">{row.type || '—'}</td><td className="px-3 py-3">{row.account || '—'}</td><td className="whitespace-nowrap px-3 py-3"><div>Dr {money(row.debit)}</div><div className="text-xs text-slate-500">Cr {money(row.credit)}</div></td></tr>)}</tbody>
+    <div className="w-full max-w-full overflow-x-auto"><table className="w-full min-w-[780px] text-left text-sm">
+      <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-3 py-3">Date</th><th className="px-3 py-3">SOF</th><th className="px-3 py-3">Type</th><th className="px-3 py-3">Account</th><th className="whitespace-nowrap px-3 py-3 text-right">Debit</th><th className="whitespace-nowrap px-3 py-3 text-right">Credit</th></tr></thead>
+      <tbody className="divide-y divide-slate-100">{rows.map(row => <tr key={row.id}><td className="whitespace-nowrap px-3 py-3">{shortDate(row.transaction_date)}</td><td className="px-3 py-3 font-medium">{displaySof(row)}</td><td className="px-3 py-3">{row.type || '—'}</td><td className="px-3 py-3">{row.account || '—'}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.debit)}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.credit)}</td></tr>)}</tbody>
     </table>{!rows.length && <div className="p-8 text-center text-sm text-slate-500">No transactions match the selected filters.</div>}</div>
   </Card>
 }
