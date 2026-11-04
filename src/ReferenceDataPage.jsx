@@ -172,6 +172,7 @@ export default function ReferenceDataPage() {
   const [references, setReferences] = useState([])
   const [summaries, setSummaries] = useState([])
   const [search, setSearch] = useState('')
+  const [sofFilter, setSofFilter] = useState('all')
   const [page, setPage] = useState(0)
   const [expanded, setExpanded] = useState([])
   const [error, setError] = useState('')
@@ -200,14 +201,13 @@ export default function ReferenceDataPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     const source = tab === 'master' ? masterRows : register
-    if (!q) return source
-    if (tab === 'master') {
-      return source.filter(row => `${row.sof} ${row.project} ${row.client} ${row.status} ${row.searchText}`.toLowerCase().includes(q))
-    }
-    return source.filter(row => `${row.sof} ${row.project} ${row.client} ${row.status} ${row.searchText}`.toLowerCase().includes(q))
-  }, [tab, masterRows, register, search])
+    return source.filter(row => {
+      if (tab === 'summary' && sofFilter !== 'all' && String(row.base) !== sofFilter) return false
+      return !q || `${row.sof} ${row.project} ${row.client} ${row.status} ${row.searchText}`.toLowerCase().includes(q)
+    })
+  }, [tab, masterRows, register, search, sofFilter])
 
-  useEffect(() => setPage(0), [tab, search])
+  useEffect(() => setPage(0), [tab, search, sofFilter])
   const visible = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
 
   return <div className="min-w-0">
@@ -271,9 +271,21 @@ export default function ReferenceDataPage() {
       </div>
       <Pager page={page} total={filtered.length} onChange={setPage} />
     </section> : <section className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-      <div className="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div><h2 className="text-sm font-semibold text-slate-900">SOF Financial Register</h2><p className="mt-1 text-xs text-slate-500">Total Contract Price includes the parent and its VOs/extensions. GP % is based on contract price (estimated) or actual sales (actual).</p></div>
-        <span className="self-start rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 sm:self-auto">{number(register.length)} SOFs</span>
+      <div className="flex min-w-0 flex-col gap-3 border-b border-slate-100 px-4 py-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="min-w-0"><h2 className="text-sm font-semibold text-slate-900">SOF Financial Register</h2><p className="mt-1 text-xs text-slate-500">Total Contract Price includes the parent and its VOs/extensions. GP % is based on contract price (estimated) or actual sales (actual).</p></div>
+        <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row sm:items-end lg:w-auto">
+          <label className="block w-full min-w-0 sm:w-[310px]">
+            <span className="mb-1 block text-xs font-semibold text-slate-600">Filter by SOF</span>
+            <select aria-label="Filter SOF Financial Register" value={sofFilter} onChange={event => setSofFilter(event.target.value)}
+              className="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
+              <option value="all">ALL SOFs</option>
+              {register.map(row => <option key={row.groupKey} value={String(row.base)}>{row.sof} — {row.project}</option>)}
+            </select>
+          </label>
+          <span className="inline-flex h-9 shrink-0 items-center self-start whitespace-nowrap rounded-full bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 sm:self-end">
+            {filtered.length === register.length ? `${number(register.length)} SOFs` : `${number(filtered.length)} of ${number(register.length)} SOFs`}
+          </span>
+        </div>
       </div>
       <div className="w-full overflow-x-auto overscroll-x-contain">
         <table className="w-full min-w-[1200px] text-left text-sm">
