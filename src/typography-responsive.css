@@ -1,0 +1,165 @@
+/* Screen-only typography and control sizing for desktop, tablet and phone.
+   Keep printing at the original A4-specific sizes; don't change shell/navigation layout. */
+@media screen {
+  #root main {
+    font-size: .93rem;
+    line-height: 1.48;
+  }
+
+  #root main .text-sm { font-size: .91rem !important; }
+  #root main .text-xs { font-size: .8rem !important; }
+  #root main [class~="text-[10px]"] { font-size: .73rem !important; }
+  #root main [class~="text-[11px]"] { font-size: .77rem !important; }
+
+  #root main table th,
+  #root main .finance-table th {
+    font-size: .74rem !important;
+    line-height: 1.3 !important;
+  }
+
+  #root main table td,
+  #root main .finance-table td {
+    font-size: .82rem !important;
+    line-height: 1.4 !important;
+  }
+
+  #root main .reference-route table td .whitespace-nowrap,
+  #root main .reference-route table td > span.whitespace-nowrap {
+    font-size: .8rem !important;
+  }
+
+  #root main input,
+  #root main select,
+  #root main textarea {
+    font-size: .92rem !important;
+  }
+
+  #root main .costcompare-page .costcompare-table td,
+  #root main .costcompare-page .costcompare-table td:last-child,
+  #root main .costcompare-page .costcompare-money {
+    font-size: .82rem !important;
+    line-height: 1.4 !important;
+  }
+
+  #root main .costcompare-page .costcompare-table th {
+    font-size: .73rem !important;
+  }
+
+  #root main .cost-stat-label,
+  #root main .costcompare-stat-label {
+    font-size: .81rem !important;
+  }
+  #root main .cost-stat-note,
+  #root main .costcompare-stat-note {
+    font-size: .76rem !important;
+  }
+  #root main .cost-comparison-title p,
+  #root main .costcompare-project-name {
+    font-size: .78rem !important;
+  }
+
+  #root > div > header b {
+    font-size: .98rem !important;
+  }
+  #root > div > header .text-slate-500 {
+    font-size: .78rem !important;
+  }
+  #root aside nav button {
+    font-size: .88rem !important;
+    min-height: 2.85rem !important;
+  }
+
+  /* Dedicated primary action, never styled by the generic white-card rules. */
+  #root main .reference-route button.vo-toggle {
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    min-width: 5rem !important;
+    min-height: 2rem !important;
+    width: max-content;
+    max-width: 100%;
+    padding: .45rem .65rem !important;
+    border: 1px solid #1d4ed8 !important;
+    border-radius: .42rem !important;
+    background-color: #2563eb !important;
+    color: #fff !important;
+    box-shadow: 0 2px 5px rgba(37,99,235,.2) !important;
+    white-space: nowrap !important;
+    word-break: normal !important;
+    overflow-wrap: normal !important;
+    font-size: .77rem !important;
+    line-height: 1 !important;
+    font-weight: 700 !important;
+    letter-spacing: .005em;
+    transition: background-color .15s ease, box-shadow .15s ease;
+  }
+
+  #root main .reference-route button.vo-toggle:hover {
+    background-color: #1d4ed8 !important;
+    color: #fff !important;
+    box-shadow: 0 3px 9px rgba(37,99,235,.26) !important;
+  }
+  #root main .reference-route button.vo-toggle:focus-visible {
+    outline: 3px solid #93c5fd !important;
+    outline-offset: 2px;
+  }
+  #root main .reference-route button.vo-toggle[aria-expanded="true"] {
+    background-color: #1e40af !important;
+  }
+}
+
+/* Tablet: larger readable labels without enlarging report cards or widths. */
+@media screen and (min-width: 768px) and (max-width: 1023px) {
+  #root main { font-size: .92rem; }
+  #root main .text-sm { font-size: .9rem !important; }
+  #root main .text-xs { font-size: .79rem !important; }
+  #root main table th { font-size: .73rem !important; }
+  #root main table td { font-size: .81rem !important; }
+  #root main input,
+  #root main select { min-height: 2.65rem; font-size: .93rem !important; }
+  #root aside nav button { font-size: .9rem !important; min-height: 2.9rem !important; }
+}
+
+/* Phone: avoid tiny 10px text, preserve table-internal horizontal scroll,
+   and keep inputs at 16px to prevent iOS tap-to-zoom. */
+@media screen and (max-width: 767px) {
+  #root main { font-size: .9rem; }
+  #root main .text-sm { font-size: .88rem !important; }
+  #root main .text-xs { font-size: .78rem !important; }
+  #root main [class~="text-[10px]"] { font-size: .72rem !important; }
+  #root main [class~="text-[11px]"] { font-size: .75rem !important; }
+
+  #root main table th,
+  #root main .finance-table th { font-size: .73rem !important; }
+  #root main table td,
+  #root main .finance-table td { font-size: .8rem !important; }
+
+  #root main input,
+  #root main select,
+  #root main textarea {
+    font-size: 1rem !important;
+    min-height: 2.7rem;
+  }
+  #root > div > header b { font-size: .94rem !important; }
+  #root > div > header .text-slate-500 { font-size: .75rem !important; }
+  #root aside nav button { font-size: .9rem !important; min-height: 2.9rem !important; }
+
+  #root main .reference-route button.vo-toggle {
+    min-height: 2rem !important;
+    font-size: .76rem !important;
+  }
+
+  #root main .costcompare-page .costcompare-table td,
+  #root main .costcompare-page .costcompare-money { font-size: .8rem !important; }
+}
+
+/* The register remains scrollable within the card, never the whole viewport. */
+@media screen {
+  #root main .reference-route section > div:has(table),
+  #root main .costcompare-page .cost-table-wrap,
+  #root main .scrollbar-thin {
+    max-width: 100%;
+    overflow-x: auto !important;
+    overscroll-behavior-x: contain;
+  }
+}
