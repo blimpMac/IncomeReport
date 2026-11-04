@@ -61,12 +61,30 @@ export function normalizeSof(raw) {
   return { label: text, key: value, base: baseMatch?.[0] || '' }
 }
 
+// Approved E-WORKS QuickBooks mappings. Keep these exact so an unrelated
+// account with a similar word cannot be silently reclassified.
+const approvedLaborAccounts = new Set([
+  'subcontractors fee-cost',
+  'outsourcing services-cost',
+  'allowance cost',
+  'work leave benefits-cost',
+])
+const approvedOverheadAccounts = new Set([
+  'overhead cost',
+  'servicing cost',
+  'office&janitorial supplies cost',
+  'repairs and maintenance cost',
+  'electricity-cost',
+  'water-cost',
+  'uniform benefits-cost',
+  'health and medical-cost',
+  'representation cost',
+])
+
 export function categorizeAccount(account = '') {
-  const a = cleanText(account).toLowerCase()
-  // Explicit QuickBooks account mapping: exact "Overhead Cost" is overhead,
-  // not the "Other" fallback. Only the classification changes, never amounts.
-  // Keep subcontracting/outsourcing separate pending an approved cost mapping.
-  if (/^overhead\s+cost$/.test(a)) return 'Overhead'
+  const a = cleanText(account).toLowerCase().replace(/\s+/g, ' ')
+  if (approvedLaborAccounts.has(a)) return 'Labor'
+  if (approvedOverheadAccounts.has(a)) return 'Overhead'
   if (/sales|revenue|service income|income on/.test(a)) return 'Revenue'
   if (/salary|wage|overtime|labor|labour|sss|philhealth|phic|pag-ibig|hdmf|13th month|employee benefit|payroll/.test(a)) return 'Labor'
   if (/material|consumable|ppe cost|tool|equipment|parts|electrical supply|hardware/.test(a)) return 'Materials'
