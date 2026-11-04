@@ -278,7 +278,7 @@ export default function CostComparisonPage() {
       <details className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-4 font-semibold text-slate-800 hover:bg-slate-50">
           <span className="flex items-center gap-2"><span aria-hidden="true" className="text-blue-600">▾</span> View Account Breakdown</span>
-          <span className="text-xs font-normal text-slate-500">QuickBooks account totals · ${selectedLabel} · Click to expand</span>
+          <span className="text-xs font-normal text-slate-500">QuickBooks account totals · {selectedLabel} · Click to expand</span>
         </summary>
         <div className="border-t border-slate-200 px-4 pb-4 pt-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
