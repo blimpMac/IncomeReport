@@ -218,7 +218,6 @@ export default function CostComparisonPage() {
       .sort((a,b) => Math.abs(num(b.net_cost)) - Math.abs(num(a.net_cost)))
   ), [breakdownRows,breakdownCategory])
   const accountTotal = accountRows.reduce((sum,row) => sum + num(row.net_cost),0)
-  const accountTransactions = accountRows.reduce((sum,row) => sum + num(row.transaction_count),0)
   const expectedCategoryActual = summary.actual[breakdownCategory.toLowerCase()]
   const hasBreakdownMismatch = !breakdownLoading && !breakdownError &&
     Math.abs(accountTotal - expectedCategoryActual) > .015
@@ -234,7 +233,7 @@ export default function CostComparisonPage() {
   return <Shell>
     <div className="costcompare-page min-w-0">
       <div className="mb-5 flex min-w-0 flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="min-w-0"><h1 className="text-2xl font-semibold text-slate-950">Cost Comparison</h1><p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">Compare encoded BOM budget with progress-based budget and actual QuickBooks cost. Missing BOM values are shown as unavailable rather than zero.</p></div>
+        <div className="min-w-0"><h1 className="text-2xl font-semibold text-slate-950">Cost Comparison</h1><p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">Project cost comparison for the selected SOF.</p></div>
         <label className="block w-full min-w-0 xl:w-[500px]">
           <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">SOF scope</span>
           <select value={selection} onChange={e => setSelection(e.target.value)} className="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm">
@@ -278,7 +277,6 @@ export default function CostComparisonPage() {
       <details className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-4 font-semibold text-slate-800 hover:bg-slate-50">
           <span className="flex items-center gap-2"><span aria-hidden="true" className="text-blue-600">▾</span> View Account Breakdown</span>
-          <span className="text-xs font-normal text-slate-500">QuickBooks account totals · {selectedLabel} · Click to expand</span>
         </summary>
         <div className="border-t border-slate-200 px-4 pb-4 pt-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -292,7 +290,6 @@ export default function CostComparisonPage() {
               </select>
             </label>
             <div className="text-left sm:text-right">
-              <div className="text-xs text-slate-500">Net actual · {breakdownCategory} · {accountTransactions.toLocaleString('en-PH')} entries</div>
               <div className="text-lg font-bold tabular-nums text-slate-900">{breakdownLoading ? 'Loading…' : breakdownError ? 'Unavailable' : money(accountTotal)}</div>
             </div>
           </div>
@@ -316,16 +313,14 @@ export default function CostComparisonPage() {
                     </div>)}
                   </div>
                   <div className="flex flex-wrap justify-between gap-2 border-t border-blue-100 bg-blue-50 px-3 py-3 text-sm font-bold">
-                    <span>{breakdownCategory} · {accountTransactions.toLocaleString('en-PH')} transactions</span>
+                    <span>{breakdownCategory} Total</span>
                     <span className="tabular-nums">{money(accountTotal)}</span>
                   </div>
                 </div>)
           }
-          <p className="mt-3 text-xs leading-relaxed text-slate-500">Breakdown is grouped directly from ready QuickBooks transactions in Supabase. Net actual cost = Debit − Credit. It follows the SOF selection above and does not add costs again.</p>
         </div>
       </details>
 
-      <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-900"><b>Variance basis:</b> BOM Based on Progress − Actual Cost. Variance is shown only when a usable BOM budget exists for the selected scope.</div>
     </div>
   </Shell>
 }
