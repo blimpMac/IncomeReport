@@ -15,6 +15,7 @@ import './responsive-fixes.css'
 import './costcompare-layout.css'
 import './hover-action-fix.css'
 import './reference-layout.css'
+import './typography-responsive.css'
 
 const NAV = [
   ['dashboard', 'Dashboard'],
