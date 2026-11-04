@@ -129,11 +129,17 @@ function buildRegister(references, summaries) {
       gross_profit: acc.gross_profit + num(row.gross_profit),
     }), { transaction_count: 0, revenue: 0, total_cost: 0, gross_profit: 0 })
     const actualAvailable = actual.transaction_count > 0
+    const actualSales = actualAvailable ? actual.revenue : null
+    const actualCost = actualAvailable ? actual.total_cost : null
+    const actualGp = actualAvailable ? actual.gross_profit : null
     return {
       ...group,
-      actualSales: actualAvailable ? actual.revenue : null,
-      actualCost: actualAvailable ? actual.total_cost : null,
-      actualGp: actualAvailable ? actual.gross_profit : null,
+      // Both margin percentages are scoped to the same consolidated parent SOF.
+      estimatedGpPct: group.contract > 0 && group.estimatedGp != null ? (group.estimatedGp / group.contract) * 100 : null,
+      actualSales,
+      actualCost,
+      actualGp,
+      actualGpPct: actualSales > 0 && actualGp != null ? (actualGp / actualSales) * 100 : null,
     }
   })
 }
@@ -142,6 +148,11 @@ function MoneyCell({ value, emphasize = false, signed = false }) {
   if (value == null) return <span className="text-slate-400">—</span>
   const negative = Number(value) < 0
   return <span className={`${emphasize ? 'font-semibold' : ''} ${signed ? (negative ? 'text-rose-700' : 'text-emerald-700') : ''} whitespace-nowrap tabular-nums`}>{money(value)}</span>
+}
+
+function PercentCell({ value }) {
+  if (value == null || !Number.isFinite(Number(value))) return <span className="text-slate-400">—</span>
+  return <span className={`whitespace-nowrap font-semibold tabular-nums ${Number(value) < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{Number(value).toFixed(2)}%</span>
 }
 
 function Pager({ page, total, onChange }) {
@@ -261,30 +272,57 @@ export default function ReferenceDataPage() {
       <Pager page={page} total={filtered.length} onChange={setPage} />
     </section> : <section className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="flex flex-col gap-2 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-        <div><h2 className="text-sm font-semibold text-slate-900">SOF Financial Register</h2><p className="mt-1 text-xs text-slate-500">Contract totals include each parent's VO/variation amounts. Estimates use available BOM; actuals are lifetime QuickBooks totals.</p></div>
+        <div><h2 className="text-sm font-semibold text-slate-900">SOF Financial Register</h2><p className="mt-1 text-xs text-slate-500">Total Contract Price includes the parent and its VOs/extensions. GP % is based on contract price (estimated) or actual sales (actual).</p></div>
         <span className="self-start rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-semibold text-indigo-700 sm:self-auto">{number(register.length)} SOFs</span>
       </div>
       <div className="w-full overflow-x-auto overscroll-x-contain">
-        <table className="w-full min-w-[1500px] text-left text-sm">
+        <table className="w-full min-w-[1200px] text-left text-sm">
           <thead className="sticky top-0 bg-slate-50 text-[10px] uppercase tracking-[0.04em] text-slate-500">
             <tr>
               <th className="px-3 py-3">SOF #</th><th className="px-3 py-3">Project</th><th className="px-3 py-3">Client</th><th className="px-3 py-3">Status</th>
-              <th className="border-l border-slate-200 px-3 py-3">Contract Amount</th><th className="px-3 py-3">Estimated Total Cost</th><th className="px-3 py-3">Estimated GP</th>
-              <th className="border-l border-slate-200 px-3 py-3">Actual Sales</th><th className="px-3 py-3">Actual Total Cost</th><th className="px-3 py-3">Actual GP</th>
+              <th className="border-l border-slate-200 px-3 py-3">Total Contract Price</th><th className="px-3 py-3">Estimated Total Cost</th><th className="px-3 py-3">Estimated GP</th><th className="px-3 py-3">Estimated GP %</th>
+              <th className="border-l border-slate-200 px-3 py-3">Actual Sales</th><th className="px-3 py-3">Actual Total Cost</th><th className="px-3 py-3">Actual GP</th><th className="px-3 py-3">Actual GP %</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">{visible.map(row => <tr key={row.base} className="hover:bg-slate-50/70">
-            <td className="px-3 py-3 font-bold text-indigo-700">{row.sof}{row.members.length > 1 && <div className="mt-1 text-[10px] font-medium text-slate-500">{row.members.length} entries incl. VO</div>}</td>
-            <td className="px-3 py-3 min-w-[230px] font-medium text-slate-800">{row.project}</td>
-            <td className="px-3 py-3 min-w-[190px] text-slate-600">{row.client}</td>
-            <td className="px-3 py-3"><span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">{row.status}</span></td>
-            <td className="border-l border-slate-100 px-3 py-3"><MoneyCell value={row.contract} /></td>
-            <td className="px-3 py-3"><MoneyCell value={row.estimatedCost} /></td>
-            <td className="px-3 py-3"><MoneyCell value={row.estimatedGp} emphasize signed />{row.estimatedCost != null && row.missingBudgetCount > 0 && <div className="text-[10px] text-amber-700">Partial BOM</div>}{row.sharedCount > 0 && <div className="text-[10px] text-amber-700">Shared ref excluded</div>}</td>
-            <td className="border-l border-slate-100 px-3 py-3"><MoneyCell value={row.actualSales} /></td>
-            <td className="px-3 py-3"><MoneyCell value={row.actualCost} /></td>
-            <td className="px-3 py-3"><MoneyCell value={row.actualGp} emphasize signed /></td>
-          </tr>)}</tbody>
+          <tbody className="divide-y divide-slate-100">{visible.map(row => <React.Fragment key={row.groupKey}>
+            <tr className="hover:bg-slate-50/70">
+              <td className="px-3 py-3 font-bold text-indigo-700">
+                <div>{row.sof}</div>
+                {row.members.length > 1 && <button type="button" aria-expanded={expanded.includes(row.groupKey)}
+                  onClick={() => toggleExpanded(row.groupKey)}
+                  className="mt-1 rounded border border-indigo-100 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 hover:bg-indigo-100">
+                  {expanded.includes(row.groupKey) ? 'Hide' : 'View'} {row.members.length - 1} VO/extension{row.members.length === 2 ? '' : 's'}
+                </button>}
+              </td>
+              <td className="px-3 py-3 font-medium text-slate-800">{row.project}</td>
+              <td className="px-3 py-3 text-slate-600">{row.client}</td>
+              <td className="px-3 py-3"><span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600">{row.status}</span></td>
+              <td className="border-l border-slate-100 px-3 py-3"><MoneyCell value={row.contract} emphasize /></td>
+              <td className="px-3 py-3"><MoneyCell value={row.estimatedCost} /></td>
+              <td className="px-3 py-3"><MoneyCell value={row.estimatedGp} emphasize signed />{row.estimatedCost != null && row.missingBudgetCount > 0 && <div className="text-[10px] text-amber-700">Partial BOM</div>}{row.sharedCount > 0 && <div className="text-[10px] text-amber-700">Shared ref excluded</div>}</td>
+              <td className="px-3 py-3"><PercentCell value={row.estimatedGpPct} /></td>
+              <td className="border-l border-slate-100 px-3 py-3"><MoneyCell value={row.actualSales} /></td>
+              <td className="px-3 py-3"><MoneyCell value={row.actualCost} /></td>
+              <td className="px-3 py-3"><MoneyCell value={row.actualGp} emphasize signed /></td>
+              <td className="px-3 py-3"><PercentCell value={row.actualGpPct} /></td>
+            </tr>
+            {expanded.includes(row.groupKey) && row.members.length > 1 && <tr className="bg-indigo-50/30">
+              <td colSpan={12} className="!w-auto !p-3">
+                <div className="max-w-full rounded-lg border border-slate-200 bg-white">
+                  <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">Contract breakdown for {row.sof} — includes parent and VO / extension entries</div>
+                  <div className="divide-y divide-slate-100">
+                    {row.members.map((item, i) => <div key={item.id || item.source_row || i} className="grid grid-cols-2 gap-2 px-3 py-2 text-[11px] sm:grid-cols-4">
+                      <span className="font-semibold text-slate-700">{item.sof_number || '—'}{referenceBases(item).length > 1 && ' (shared)'}</span>
+                      <span className="tabular-nums text-slate-700">{referenceBases(item).length > 1 ? 'Unallocated' : money(contractTotal(item))}</span>
+                      <span className="text-slate-500">Est. cost: {hasBudget(item) ? money(budgetTotal(item)) : 'No BOM'}</span>
+                      <span className="text-slate-500">{clean(item.project_status) || '—'}</span>
+                    </div>)}
+                  </div>
+                  <div className="border-t border-slate-200 px-3 py-2 text-right text-xs font-semibold text-slate-800">Total Contract Price: {row.contract == null ? '—' : money(row.contract)}</div>
+                </div>
+              </td>
+            </tr>}
+          </React.Fragment>)}</tbody>
         </table>
       </div>
       <Pager page={page} total={filtered.length} onChange={setPage} />
