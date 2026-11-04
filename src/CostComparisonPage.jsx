@@ -165,6 +165,10 @@ export default function CostComparisonPage() {
   const [references,setReferences] = useState([])
   const [selection,setSelection] = useState('all')
   const [error,setError] = useState('')
+  const [breakdownCategory,setBreakdownCategory] = useState('Labor')
+  const [breakdownRows,setBreakdownRows] = useState([])
+  const [breakdownLoading,setBreakdownLoading] = useState(true)
+  const [breakdownError,setBreakdownError] = useState('')
 
   useEffect(() => {
     Promise.all([
@@ -175,6 +179,28 @@ export default function CostComparisonPage() {
       else { setSummaries(a.data || []); setReferences(b.data || []); setError('') }
     })
   }, [])
+
+  // Source of truth: server-side sum of ready QB entries. Never fetch an
+  // arbitrary 1,000-row subset or double-count repeated dated uploads.
+  useEffect(() => {
+    let cancelled = false
+    setBreakdownLoading(true)
+    setBreakdownError('')
+    setBreakdownRows([])
+    supabase.rpc('income_cost_account_breakdown', {
+      p_sof_base: selection === 'all' ? null : String(selection),
+    }).then(({ data, error: loadError }) => {
+      if (cancelled) return
+      if (loadError) setBreakdownError(loadError.message)
+      else setBreakdownRows(data || [])
+      setBreakdownLoading(false)
+    }).catch(loadError => {
+      if (cancelled) return
+      setBreakdownError(loadError?.message || 'Unable to load account breakdown.')
+      setBreakdownLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [selection])
 
   const options = useMemo(() => {
     const bases = [...new Set([...summaries.map(baseOf), ...references.flatMap(refBases)].filter(x => x != null))].sort((a,b) => a-b)
@@ -187,6 +213,15 @@ export default function CostComparisonPage() {
   const summary = useMemo(() => summarize(selection,summaries,references), [selection,summaries,references])
   const rows = useMemo(() => comparisonRows(summary), [summary])
   const total = rows[rows.length - 1]
+  const accountRows = useMemo(() => (
+    breakdownRows.filter(row => row.category === breakdownCategory)
+      .sort((a,b) => Math.abs(num(b.net_cost)) - Math.abs(num(a.net_cost)))
+  ), [breakdownRows,breakdownCategory])
+  const accountTotal = accountRows.reduce((sum,row) => sum + num(row.net_cost),0)
+  const accountTransactions = accountRows.reduce((sum,row) => sum + num(row.transaction_count),0)
+  const expectedCategoryActual = summary.actual[breakdownCategory.toLowerCase()]
+  const hasBreakdownMismatch = !breakdownLoading && !breakdownError &&
+    Math.abs(accountTotal - expectedCategoryActual) > .015
   const selectedLabel = summary.all ? 'All SOFs' : `SOF ${summary.selectedBase}`
   const coverageMessage = summary.all
     ? `BOM coverage: ${summary.budgetRows} of ${summary.referenceRows} Reference Data rows currently have a cost budget.${summary.coverageComplete ? '' : ' Portfolio variance is intentionally unavailable until BOM coverage is complete.'}`
@@ -239,6 +274,56 @@ export default function CostComparisonPage() {
           </table>
         </div>
       </section>
+
+      <details className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-4 font-semibold text-slate-800 hover:bg-slate-50">
+          <span className="flex items-center gap-2"><span aria-hidden="true" className="text-blue-600">▾</span> View Account Breakdown</span>
+          <span className="text-xs font-normal text-slate-500">QuickBooks account totals · ${selectedLabel} · Click to expand</span>
+        </summary>
+        <div className="border-t border-slate-200 px-4 pb-4 pt-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <label className="block min-w-0 sm:w-72">
+              <span className="mb-1 block text-xs font-semibold text-slate-600">Choose cost category</span>
+              <select value={breakdownCategory} onChange={e => setBreakdownCategory(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700">
+                <option value="Labor">Labor</option>
+                <option value="Overhead">Overhead</option>
+                <option value="Materials">Materials</option>
+                <option value="Other">Other / Unmapped</option>
+              </select>
+            </label>
+            <div className="text-left sm:text-right">
+              <div className="text-xs text-slate-500">Net actual · {breakdownCategory} · {accountTransactions.toLocaleString('en-PH')} entries</div>
+              <div className="text-lg font-bold tabular-nums text-slate-900">{breakdownLoading ? 'Loading…' : breakdownError ? 'Unavailable' : money(accountTotal)}</div>
+            </div>
+          </div>
+
+          {breakdownError && <div role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{breakdownError}</div>}
+          {hasBreakdownMismatch && <div role="alert" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Account breakdown does not reconcile to the Cost Comparison summary. Please review this category before relying on the figures.</div>}
+          {breakdownLoading ? <div className="mt-4 py-6 text-center text-sm text-slate-500">Loading the exact QuickBooks account totals…</div> :
+            !breakdownError && (accountRows.length === 0
+              ? <div className="mt-4 rounded-lg bg-slate-50 px-3 py-5 text-center text-sm text-slate-500">No {breakdownCategory} transactions for this selection.</div>
+              : <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
+                  <div className="hidden grid-cols-[minmax(0,2fr)_85px_repeat(3,minmax(0,1fr))] gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-500 lg:grid">
+                    <span>QuickBooks Account</span><span className="text-right">Entries</span><span className="text-right">Debit</span><span className="text-right">Credit</span><span className="text-right">Net Actual Cost</span>
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {accountRows.map((item,index) => <div key={`${item.account}-${index}`} className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 px-3 py-3 text-sm lg:grid-cols-[minmax(0,2fr)_85px_repeat(3,minmax(0,1fr))] lg:items-center">
+                      <div className="col-span-2 min-w-0 break-words font-semibold text-slate-800 lg:col-span-1">{item.account}</div>
+                      <div className="text-right lg:text-right"><span className="block text-[11px] text-slate-500 lg:hidden">Entries</span><span className="tabular-nums">{num(item.transaction_count).toLocaleString('en-PH')}</span></div>
+                      <div className="text-right"><span className="block text-[11px] text-slate-500 lg:hidden">Debit</span><span className="tabular-nums">{money(item.debit)}</span></div>
+                      <div className="text-right"><span className="block text-[11px] text-slate-500 lg:hidden">Credit</span><span className="tabular-nums">{money(item.credit)}</span></div>
+                      <div className="text-right font-bold text-slate-900"><span className="block text-[11px] font-normal text-slate-500 lg:hidden">Net Actual Cost</span><span className="tabular-nums">{money(item.net_cost)}</span></div>
+                    </div>)}
+                  </div>
+                  <div className="flex flex-wrap justify-between gap-2 border-t border-blue-100 bg-blue-50 px-3 py-3 text-sm font-bold">
+                    <span>{breakdownCategory} · {accountTransactions.toLocaleString('en-PH')} transactions</span>
+                    <span className="tabular-nums">{money(accountTotal)}</span>
+                  </div>
+                </div>)
+          }
+          <p className="mt-3 text-xs leading-relaxed text-slate-500">Breakdown is grouped directly from ready QuickBooks transactions in Supabase. Net actual cost = Debit − Credit. It follows the SOF selection above and does not add costs again.</p>
+        </div>
+      </details>
 
       <div className="mt-4 rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm leading-6 text-blue-900"><b>Variance basis:</b> BOM Based on Progress − Actual Cost. Variance is shown only when a usable BOM budget exists for the selected scope.</div>
     </div>
