@@ -65,20 +65,44 @@
   font-size: .67rem;
 }
 
-/* Financial register: reserve space where it matters and keep numeric columns compact. */
-.reference-route table:has(th:nth-child(10)) th:nth-child(1),
-.reference-route table:has(th:nth-child(10)) td:nth-child(1) { width: 6.5%; }
-.reference-route table:has(th:nth-child(10)) th:nth-child(2),
-.reference-route table:has(th:nth-child(10)) td:nth-child(2) { width: 16%; }
-.reference-route table:has(th:nth-child(10)) th:nth-child(3),
-.reference-route table:has(th:nth-child(10)) td:nth-child(3) { width: 13%; }
-.reference-route table:has(th:nth-child(10)) th:nth-child(4),
-.reference-route table:has(th:nth-child(10)) td:nth-child(4) { width: 9%; }
-.reference-route table:has(th:nth-child(10)) th:nth-child(n+5),
-.reference-route table:has(th:nth-child(10)) td:nth-child(n+5) { width: 9.25%; }
+/* SOF Financial Register: twelve compact columns with two GP percentages.
+   The table scrolls inside its own card on narrow screens, not across the page. */
+.reference-route table:has(th:nth-child(12)) {
+  min-width: 1200px !important;
+  table-layout: fixed;
+}
 
-.reference-route table:has(th:nth-child(10)) td:nth-child(n+5) {
+.reference-route table:has(th:nth-child(12)) th:nth-child(1),
+.reference-route table:has(th:nth-child(12)) td:nth-child(1) { width: 5%; }
+.reference-route table:has(th:nth-child(12)) th:nth-child(2),
+.reference-route table:has(th:nth-child(12)) td:nth-child(2) { width: 12%; }
+.reference-route table:has(th:nth-child(12)) th:nth-child(3),
+.reference-route table:has(th:nth-child(12)) td:nth-child(3) { width: 10%; }
+.reference-route table:has(th:nth-child(12)) th:nth-child(4),
+.reference-route table:has(th:nth-child(12)) td:nth-child(4) { width: 7%; }
+.reference-route table:has(th:nth-child(12)) th:nth-child(5),
+.reference-route table:has(th:nth-child(12)) td:nth-child(5) { width: 10%; }
+.reference-route table:has(th:nth-child(12)) th:nth-child(6),
+.reference-route table:has(th:nth-child(12)) td:nth-child(6) { width: 9%; }
+.reference-route table:has(th:nth-child(12)) th:nth-child(7),
+.reference-route table:has(th:nth-child(12)) td:nth-child(7) { width: 9%; }
+.reference-route table:has(th:nth-child(12)) th:nth-child(8),
+.reference-route table:has(th:nth-child(12)) td:nth-child(8) { width: 6%; }
+.reference-route table:has(th:nth-child(12)) th:nth-child(9),
+.reference-route table:has(th:nth-child(12)) td:nth-child(9) { width: 9%; }
+.reference-route table:has(th:nth-child(12)) th:nth-child(10),
+.reference-route table:has(th:nth-child(12)) td:nth-child(10) { width: 9%; }
+.reference-route table:has(th:nth-child(12)) th:nth-child(11),
+.reference-route table:has(th:nth-child(12)) td:nth-child(11) { width: 8%; }
+.reference-route table:has(th:nth-child(12)) th:nth-child(12),
+.reference-route table:has(th:nth-child(12)) td:nth-child(12) { width: 6%; }
+
+.reference-route table:has(th:nth-child(12)) td:nth-child(n+5) {
   font-variant-numeric: tabular-nums;
+}
+.reference-route table:has(th:nth-child(12)) td:nth-child(8),
+.reference-route table:has(th:nth-child(12)) td:nth-child(12) {
+  text-align: right;
 }
 
 .reference-route table:has(th:nth-child(7)):not(:has(th:nth-child(8))) th:nth-child(1),
@@ -118,5 +142,11 @@
   .reference-route table th,
   .reference-route table td {
     padding: .45rem .38rem !important;
+  }
+}
+
+@media (max-width: 1180px) {
+  .reference-route table:has(th:nth-child(12)) {
+    min-width: 1200px !important;
   }
 }
