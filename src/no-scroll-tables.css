@@ -310,3 +310,64 @@
   #root main .reference-route table.reference-master-table.responsive-record-table[data-column-count="7"] th:nth-child(7),
   #root main .reference-route table.reference-master-table.responsive-record-table[data-column-count="7"] td:nth-child(7) { width: 14% !important; }
 }
+
+/* Reference Data table header readability.
+   Keep this after the general compact table rules so header type stays legible. */
+@media screen {
+  #root main .reference-route table.sof-register-table.responsive-record-table thead,
+  #root main .reference-route table.reference-master-table.responsive-record-table thead {
+    background: #173c68 !important;
+    color: #ffffff !important;
+  }
+  #root main .reference-route table.sof-register-table.responsive-record-table thead th,
+  #root main .reference-route table.reference-master-table.responsive-record-table thead th {
+    background: #173c68 !important;
+    color: #ffffff !important;
+    font-size: .79rem !important;
+    line-height: 1.4 !important;
+    font-weight: 750 !important;
+    letter-spacing: .01em !important;
+    text-transform: uppercase;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+    white-space: normal !important;
+    padding: .82rem .48rem !important;
+    vertical-align: middle !important;
+    border-bottom: 2px solid #0f294a !important;
+  }
+
+  #root main .reference-route table.sof-register-table.responsive-record-table thead th:nth-child(5),
+  #root main .reference-route table.sof-register-table.responsive-record-table thead th:nth-child(9) {
+    border-left: 2px solid #80b9e4 !important;
+  }
+
+  #root main .reference-route table.reference-master-table.responsive-record-table thead th {
+    font-size: .84rem !important;
+    padding: .84rem .7rem !important;
+  }
+
+  /* Card labels replace the desktop table headers below the container
+     breakpoint. Make them readable on tablet/phone as well. */
+  #root main .reference-route table.responsive-record-table > tbody > tr:not(:has(td[colspan])) > td::before {
+    color: #334155 !important;
+    font-size: .76rem !important;
+    font-weight: 750 !important;
+    letter-spacing: .012em !important;
+    line-height: 1.4 !important;
+  }
+
+  /* Make the page's section heading easier to distinguish from its caption. */
+  #root main .reference-route section > div.border-b h2 {
+    color: #0f2748 !important;
+    font-size: 1rem !important;
+    font-weight: 750 !important;
+    line-height: 1.35 !important;
+  }
+}
+
+@media screen and (max-width: 767px) {
+  #root main .reference-route table.responsive-record-table > tbody > tr:not(:has(td[colspan])) > td::before {
+    font-size: .75rem !important;
+    line-height: 1.4 !important;
+  }
+}
