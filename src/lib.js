@@ -63,6 +63,10 @@ export function normalizeSof(raw) {
 
 export function categorizeAccount(account = '') {
   const a = cleanText(account).toLowerCase()
+  // Explicit QuickBooks account mapping: exact "Overhead Cost" is overhead,
+  // not the "Other" fallback. Only the classification changes, never amounts.
+  // Keep subcontracting/outsourcing separate pending an approved cost mapping.
+  if (/^overhead\s+cost$/.test(a)) return 'Overhead'
   if (/sales|revenue|service income|income on/.test(a)) return 'Revenue'
   if (/salary|wage|overtime|labor|labour|sss|philhealth|phic|pag-ibig|hdmf|13th month|employee benefit|payroll/.test(a)) return 'Labor'
   if (/material|consumable|ppe cost|tool|equipment|parts|electrical supply|hardware/.test(a)) return 'Materials'
