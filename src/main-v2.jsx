@@ -16,6 +16,7 @@ import './costcompare-layout.css'
 import './hover-action-fix.css'
 import './reference-layout.css'
 import './typography-responsive.css'
+import './no-scroll-tables.css'
 
 const NAV = [
   ['dashboard', 'Dashboard'],
@@ -102,6 +103,48 @@ function RouteShell({ children, active = 'upload' }) {
   </div>
 }
 
+// Existing report pages use native tables. Add accessible field labels to their
+// cells so narrow cards can display every value without horizontal scrolling.
+function ResponsiveTableLabels() {
+  useEffect(() => {
+    const root = document.getElementById('root')
+    if (!root) return undefined
+
+    const labelTables = () => {
+      root.querySelectorAll('main table').forEach(table => {
+        const header = table.querySelector('thead tr')
+        if (!header) return
+        const labels = [...header.querySelectorAll('th')].map(th =>
+          (th.textContent || '').replace(/\s+/g, ' ').trim()
+        )
+        if (!labels.length) return
+
+        if (!table.classList.contains('responsive-record-table')) {
+          table.classList.add('responsive-record-table')
+        }
+        if (table.dataset.columnCount !== String(labels.length)) {
+          table.dataset.columnCount = String(labels.length)
+        }
+        table.parentElement?.classList.add('responsive-table-host')
+
+        table.querySelectorAll('tbody > tr').forEach(tr => {
+          [...tr.children].filter(cell => cell.tagName === 'TD').forEach((cell, index) => {
+            if (cell.colSpan > 1) return
+            const label = labels[index] || 'Details'
+            if (cell.getAttribute('data-label') !== label) cell.setAttribute('data-label', label)
+          })
+        })
+      })
+    }
+
+    const observer = new MutationObserver(labelTables)
+    observer.observe(root, { childList: true, subtree: true })
+    labelTables()
+    return () => observer.disconnect()
+  }, [])
+  return null
+}
+
 function RootRouter() {
   const [hash, setHash] = useState(location.hash || '#/dashboard')
   useEffect(() => {
@@ -119,7 +162,7 @@ function RootRouter() {
   else if (page === 'reference') content = <RouteShell active="reference"><div className="reference-route"><ReferenceDataPage /></div></RouteShell>
   else content = <App />
 
-  return <><SidebarCostLink />{content}</>
+  return <><ResponsiveTableLabels /><SidebarCostLink />{content}</>
 }
 
 createRoot(document.getElementById('root')).render(<React.StrictMode><RootRouter /></React.StrictMode>)
