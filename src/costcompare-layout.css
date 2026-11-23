@@ -29,9 +29,37 @@
 }
 
 .costcompare-page .cost-stat-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: .65rem;
   padding: .8rem;
+}
+
+.costcompare-page .costcompare-progress-ring {
+  display: grid;
+  width: 4.4rem;
+  height: 4.4rem;
+  margin: .55rem auto .35rem;
+  place-items: center;
+  border-radius: 50%;
+  background: conic-gradient(#16834f var(--progress), #d8e4ec 0);
+}
+
+.costcompare-page .costcompare-progress-ring span {
+  display: grid;
+  width: 3.35rem;
+  height: 3.35rem;
+  place-items: center;
+  border-radius: 50%;
+  background: #ecfdf5;
+  color: #123b2a;
+  font-size: .9rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.costcompare-page .cost-comparison-brand strong {
+  color: #16834f;
+  letter-spacing: .08em;
 }
 
 .costcompare-page .costcompare-stat {

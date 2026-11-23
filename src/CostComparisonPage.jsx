@@ -52,7 +52,7 @@ function Shell({ children }) {
   return <div className="min-h-screen w-full overflow-x-hidden bg-[#f7f8fa]">
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
       <div className="mx-auto flex h-16 max-w-[1500px] items-center gap-3 px-4 lg:px-6">
-        <button aria-label={open ? 'Close navigation' : 'Open navigation'} aria-expanded={open} className="shrink-0" onClick={() => setOpen(!open)}>☰</button>
+        <button aria-label={open ? 'Close navigation' : 'Open navigation'} aria-expanded={open} className="shrink-0" onClick={() => setOpen(!open)}>â˜°</button>
         <button onClick={() => go('dashboard')} className="min-w-0 text-left"><b className="block truncate text-sm">E-WORKS Income Report</b><div className="truncate text-xs text-slate-500">Finance reporting workspace</div></button>
       </div>
     </header>
@@ -91,12 +91,13 @@ function summarize(selection, summaries, references) {
   }
 
   const actual = tx.reduce((a,s) => ({
+    revenue:a.revenue + num(s.revenue),
     materials:a.materials + num(s.materials),
     labor:a.labor + num(s.labor),
     overhead:a.overhead + num(s.overhead),
     other:a.other + num(s.other_cost),
     total:a.total + num(s.total_cost),
-  }), { materials:0,labor:0,overhead:0,other:0,total:0 })
+  }), { revenue:0,materials:0,labor:0,overhead:0,other:0,total:0 })
 
   const referenceRows = uniqueRefs.length
   const budgetRows = budgetRefs.length
@@ -105,7 +106,9 @@ function summarize(selection, summaries, references) {
   const varianceAvailable = hasBom && (!all || coverageComplete)
   const progress = hasBom && budget.total ? progressBudget.total / budget.total : null
   const project = all ? 'Portfolio summary' : projectNameForBase(selectedBase, references)
-  return { all, selectedBase, project, budget, progressBudget, actual, progress, referenceRows, budgetRows, hasBom, coverageComplete, varianceAvailable }
+  const grossProfit = actual.revenue - actual.total
+  const grossMargin = actual.revenue ? grossProfit / actual.revenue : null
+  return { all, selectedBase, project, budget, progressBudget, actual, grossProfit, grossMargin, progress, referenceRows, budgetRows, hasBom, coverageComplete, varianceAvailable }
 }
 
 function comparisonRows(summary) {
@@ -147,11 +150,11 @@ function comparisonRows(summary) {
   return rows
 }
 
-function displayMoney(value, missingText = '—') {
+function displayMoney(value, missingText = 'â€”') {
   return value == null ? missingText : money(value)
 }
 
-function Stat({ label, note, value, danger=false, tone='green', missingText='—' }) {
+function Stat({ label, note, value, danger=false, tone='green', missingText='â€”' }) {
   const toneClass = danger ? 'border-rose-200 bg-rose-50' : tone === 'blue' ? 'border-blue-200 bg-blue-50' : 'border-emerald-200 bg-emerald-50'
   return <div className={`costcompare-stat min-w-0 rounded-xl border p-3.5 text-center shadow-sm ${toneClass}`}>
     <div className="text-[11px] font-extrabold uppercase tracking-wide text-slate-700">{label}</div>
@@ -233,12 +236,12 @@ export default function CostComparisonPage() {
   return <Shell>
     <div className="costcompare-page min-w-0">
       <div className="mb-5 flex min-w-0 flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-        <div className="min-w-0"><h1 className="text-2xl font-semibold text-slate-950">Cost Comparison</h1><p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">Project cost comparison for the selected SOF.</p></div>
+        <div className="min-w-0"><h1 className="text-2xl font-semibold text-slate-950">Project Profitability Analysis</h1><p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">Project budgets, recorded costs, and gross profit from QuickBooks.</p></div>
         <label className="block w-full min-w-0 xl:w-[500px]">
           <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">SOF scope</span>
           <select value={selection} onChange={e => setSelection(e.target.value)} className="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm">
-            <option value="all">All SOFs — Portfolio Summary</option>
-            {options.map(item => <option key={item.base} value={item.base}>SOF {item.base} — {item.project}{item.hasBom ? '' : ' — No BOM budget'}</option>)}
+            <option value="all">All SOFs â€” Portfolio Summary</option>
+            {options.map(item => <option key={item.base} value={item.base}>SOF {item.base} â€” {item.project}{item.hasBom ? '' : ' â€” No BOM budget'}</option>)}
           </select>
         </label>
       </div>
@@ -248,15 +251,20 @@ export default function CostComparisonPage() {
 
       <section className="cost-comparison-section !mt-0">
         <div className="cost-comparison-title">
-          <div className="min-w-0"><h3>Cost Comparison</h3><p className="costcompare-project-name">{selectedLabel}{!summary.all ? ` — ${summary.project}` : ' — Portfolio Summary'} · progress & cost analysis</p></div>
-          <div className="cost-comparison-brand"><div><span>Total Progress</span><b>{summary.progress == null ? '—' : `${(summary.progress * 100).toFixed(2)}%`}</b></div><strong>GREENLIGHT</strong></div>
+          <div className="min-w-0"><h3>{summary.all ? 'Portfolio Summary' : summary.project}</h3><p className="costcompare-project-name">{selectedLabel} Â· budget, actual cost, and gross profit</p></div>
+          <div className="cost-comparison-brand"><strong>GREENLIGHT POWER</strong></div>
         </div>
 
         <div className="cost-stat-grid">
-          <Stat label="Total Project Cost" note={summary.all && !summary.coverageComplete ? 'Encoded BOM only' : 'Budgeted / BOM'} value={summary.hasBom ? summary.budget.total : null} />
-          <Stat label="Total Project Cost" note={summary.all && !summary.coverageComplete ? 'Encoded BOM based on progress' : 'Budgeted based on progress'} value={summary.hasBom ? summary.progressBudget.total : null} tone="blue" />
-          <Stat label="Total Project Cost" note="Actual QuickBooks" value={summary.actual.total} />
-          <Stat label="Variance" note="On-progress budget vs actual" value={total.variance} danger={total.variance != null && total.variance < 0} tone="blue" missingText="Unavailable" />
+          <div className="costcompare-stat costcompare-progress-stat min-w-0 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-center shadow-sm">
+            <div className="text-[11px] font-extrabold uppercase tracking-wide text-slate-700">Project Progress</div>
+            <div className="costcompare-progress-ring" style={{ '--progress': `${summary.progress == null ? 0 : summary.progress * 100}%` }}><span>{summary.progress == null ? 'â€”' : `${(summary.progress * 100).toFixed(1)}%`}</span></div>
+            {!summary.hasBom && <div className="text-[10px] text-slate-500">No BOM budget</div>}
+          </div>
+          <Stat label="Planned Cost" note="BOM budget based on progress" value={summary.hasBom ? summary.progressBudget.total : null} tone="blue" />
+          <Stat label="Actual Cost to Date" note="QuickBooks recorded cost" value={summary.actual.total} />
+          <Stat label="Cost Variance" note="Progress-based budget minus actual" value={total.variance} danger={total.variance != null && total.variance < 0} tone="blue" missingText="Unavailable" />
+          <Stat label="Gross Profit / (Loss)" note={summary.grossMargin == null ? 'No recorded revenue' : `${(summary.grossMargin * 100).toFixed(1)}% gross margin`} value={summary.actual.revenue ? summary.grossProfit : null} danger={summary.grossProfit < 0} missingText="Unavailable" />
         </div>
 
         <div className="cost-table-wrap">
@@ -264,7 +272,7 @@ export default function CostComparisonPage() {
             <thead><tr><th>Account</th><th>BOM</th><th>BOM Based on Progress</th><th>Actual</th><th>Variance vs. On Progress</th><th>Analysis</th></tr></thead>
             <tbody>{rows.map(r => <tr key={r.label} className={r.label === 'Total' ? 'cost-total-row' : ''}>
               <td>{r.label}</td>
-              <td><span className="costcompare-money">{displayMoney(r.budget, r.label === 'Other / Unmapped' ? 'No BOM category' : '—')}</span></td>
+              <td><span className="costcompare-money">{displayMoney(r.budget, r.label === 'Other / Unmapped' ? 'No BOM category' : 'â€”')}</span></td>
               <td><span className="costcompare-money">{displayMoney(r.progressBudget)}</span></td>
               <td><span className="costcompare-money">{money(r.actual)}</span></td>
               <td className={r.variance == null ? '' : r.variance < 0 ? 'cost-negative' : 'cost-positive'}><span className="costcompare-money">{displayMoney(r.variance)}</span></td>
@@ -276,7 +284,7 @@ export default function CostComparisonPage() {
 
       <details className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
         <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-4 font-semibold text-slate-800 hover:bg-slate-50">
-          <span className="flex items-center gap-2"><span aria-hidden="true" className="text-blue-600">▾</span> View Account Breakdown</span>
+          <span className="flex items-center gap-2"><span aria-hidden="true" className="text-blue-600">â–¾</span> View Account Breakdown</span>
         </summary>
         <div className="border-t border-slate-200 px-4 pb-4 pt-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
@@ -290,13 +298,13 @@ export default function CostComparisonPage() {
               </select>
             </label>
             <div className="text-left sm:text-right">
-              <div className="text-lg font-bold tabular-nums text-slate-900">{breakdownLoading ? 'Loading…' : breakdownError ? 'Unavailable' : money(accountTotal)}</div>
+              <div className="text-lg font-bold tabular-nums text-slate-900">{breakdownLoading ? 'Loadingâ€¦' : breakdownError ? 'Unavailable' : money(accountTotal)}</div>
             </div>
           </div>
 
           {breakdownError && <div role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{breakdownError}</div>}
           {hasBreakdownMismatch && <div role="alert" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Account breakdown does not reconcile to the Cost Comparison summary. Please review this category before relying on the figures.</div>}
-          {breakdownLoading ? <div className="mt-4 py-6 text-center text-sm text-slate-500">Loading the exact QuickBooks account totals…</div> :
+          {breakdownLoading ? <div className="mt-4 py-6 text-center text-sm text-slate-500">Loading the exact QuickBooks account totalsâ€¦</div> :
             !breakdownError && (accountRows.length === 0
               ? <div className="mt-4 rounded-lg bg-slate-50 px-3 py-5 text-center text-sm text-slate-500">No {breakdownCategory} transactions for this selection.</div>
               : <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
