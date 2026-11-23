@@ -63,12 +63,12 @@ function MainDashboard() {
     let active = true
     if (!selectedMonths.length) { setReports([]); setLoading(false); return }
     setLoading(true)
-    Promise.all(selectedMonths.map(month => supabase.rpc('income_monthly_report', { p_month: `${month}-01` })))
+    Promise.all(selectedMonths.map(month => supabase.rpc('income_dashboard_filtered', { p_month: `${month}-01`, p_sof_base: null })))
       .then(results => {
         if (!active) return
         const failed = results.find(result => result.error)
         if (failed) setError(failed.error.message)
-        else { setError(''); setReports(results.map((result, i) => ({ month: selectedMonths[i], ...(result.data || {}) }))) }
+        else { setError(''); setReports(results.map((result, i) => ({ month: selectedMonths[i], ...(result.data?.report || {}) }))) }
         setLoading(false)
       })
     return () => { active = false }
