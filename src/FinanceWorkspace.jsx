@@ -54,20 +54,28 @@ function useMonths() {
     // This screen only needs the available month keys. The all-period dashboard
     // RPC also builds every SOF/account aggregate, which can exceed the DB
     // statement timeout on a large transaction history.
-    supabase.from('income_transactions_ready')
-      .select('transaction_date')
-      .not('transaction_date', 'is', null)
-      .order('transaction_date', { ascending: false })
-      .limit(10000)
-      .then(({ data, error: e }) => {
-      if (!active) return
-      if (e) setError(e.message)
-      else {
-        const availableMonths = [...new Set((data || []).map(row => row.transaction_date?.slice(0, 7)).filter(Boolean))]
-        setMonths(availableMonths)
+    const loadMonths = async () => {
+      const dates = []
+      const pageSize = 1000
+      try {
+        for (let offset = 0; ; offset += pageSize) {
+          const { data, error: queryError } = await supabase.from('income_transactions_ready')
+            .select('transaction_date')
+            .not('transaction_date', 'is', null)
+            .order('transaction_date', { ascending: false })
+            .range(offset, offset + pageSize - 1)
+          if (!active) return
+          if (queryError) { setError(queryError.message); return }
+          dates.push(...(data || []).map(row => row.transaction_date))
+          if (!data || data.length < pageSize) break
+        }
+        setMonths([...new Set(dates.map(date => date?.slice(0, 7)).filter(Boolean))])
         setError('')
+      } catch (queryError) {
+        if (active) setError(queryError?.message || 'Unable to load reporting periods.')
       }
-    })
+    }
+    loadMonths()
     return () => { active = false }
   }, [])
   return { months, error }
