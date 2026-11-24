@@ -21,6 +21,31 @@ function Card({ title, note, children, className = '' }) {
   return <section className={`min-w-0 rounded-2xl border border-emerald-100 bg-white p-5 shadow-sm ${className}`}><div className="mb-4"><h2 className="font-semibold text-slate-900">{title}</h2>{note && <p className="mt-1 text-xs text-slate-500">{note}</p>}</div>{children}</section>
 }
 
+const DONUT_COLORS = ['#16876f', '#397da3', '#d7973e', '#bd6670', '#7a70b5']
+
+function DonutChart({ rows, total, emptyLabel }) {
+  const positiveRows = rows.filter(row => Number(row.value) > 0)
+  const positiveTotal = positiveRows.reduce((sum, row) => sum + Number(row.value), 0)
+  let cursor = 0
+  const gradient = positiveRows.map((row, index) => {
+    const start = cursor
+    cursor += Number(row.value) / positiveTotal * 100
+    return `${DONUT_COLORS[index % DONUT_COLORS.length]} ${start}% ${cursor}%`
+  }).join(', ')
+  return <div className="monitor-donut-layout">
+    {positiveTotal > 0 ? <>
+      <div className="monitor-donut" style={{ background: `conic-gradient(${gradient})` }} aria-label={`${money(total)} total`} role="img">
+        <div className="monitor-donut-hole"><strong>{money(total)}</strong><span>Total</span></div>
+      </div>
+      <div className="monitor-donut-legend">{positiveRows.map((row, index) => <div key={row.label}>
+        <span><i style={{ background: DONUT_COLORS[index % DONUT_COLORS.length] }} />{row.label}</span>
+        <b>{money(row.value)}</b>
+        <small>{(Number(row.value) / positiveTotal * 100).toFixed(0)}%</small>
+      </div>)}</div>
+    </> : <p className="monitor-empty">{emptyLabel}</p>}
+  </div>
+}
+
 function useMonths() {
   const [months, setMonths] = useState([])
   const [error, setError] = useState('')
@@ -82,6 +107,15 @@ function MainDashboard() {
   const problem = error || monthsError
   const costMix = [['Materials', selected?.materials], ['Labor', selected?.labor], ['Overhead', selected?.overhead], ['Other', selected?.other_cost]]
   const totalCost = Number(selected?.total_cost || 0)
+  const revenueTotal = Number(selected?.revenue || 0)
+  const revenueBySof = useMemo(() => {
+    const sorted = sofRows.map(row => ({ label: row.sof_label || row.sof_key || 'Unassigned', value: Number(row.revenue || 0) }))
+      .filter(row => row.value > 0).sort((a, b) => b.value - a.value)
+    const top = sorted.slice(0, 4)
+    const remainder = sorted.slice(4).reduce((sum, row) => sum + row.value, 0)
+    if (remainder > 0) top.push({ label: 'Other SOFs', value: remainder })
+    return top
+  }, [sofRows])
   const riskProjects = [...sofRows].filter(row => Number(row.gross_profit || 0) < 0).sort((a, b) => Number(a.gross_profit || 0) - Number(b.gross_profit || 0)).slice(0, 5)
   return <Shell><div className="monitor-heading"><div><p className="monitor-eyebrow">FINANCIAL OPERATIONS</p><h1>Financial monitor</h1><p>Track revenue, delivery costs, and project margin by reporting period.</p></div><div className="monitor-period"><label>Year<select value={year} onChange={event => setYear(event.target.value)}>{years.map(value => <option key={value}>{value}</option>)}</select></label><label>Month<select value={month} onChange={event => setMonth(event.target.value)}>{yearMonths.map(value => <option key={value} value={value}>{monthName(value)}</option>)}</select></label></div></div>
     {problem && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{problem}</div>}
@@ -94,7 +128,7 @@ function MainDashboard() {
     <div className="monitor-grid"><Card title="Revenue and cost trend" note={`Monthly performance in ${year || 'selected year'}`} className="monitor-trend-card">
       {loading ? <div className="py-20 text-center text-sm text-slate-500">Loading monthly totals…</div> : visibleReports.length ? <div className="monitor-chart">{visibleReports.map(row => <div key={row.month} className="monitor-chart-month"><div className="monitor-chart-bars"><div title={`Revenue ${money(row.revenue)}`} className="monitor-bar revenue" style={{ height: `${Math.max(2, Number(row.revenue || 0) / max * 100)}%` }} /><div title={`Cost ${money(row.total_cost)}`} className="monitor-bar cost" style={{ height: `${Math.max(2, Number(row.total_cost || 0) / max * 100)}%` }} /></div><span>{monthName(row.month).slice(0, 3)}</span></div>)}</div> : <div className="py-20 text-center text-sm text-slate-500">No reports found for this year.</div>}
       <div className="monitor-legend"><span><i className="revenue" />Revenue</span><span><i className="cost" />Cost</span></div>
-    </Card><Card title="Cost composition" note={month ? `Recorded cost · ${monthName(month)}` : 'No report selected'}><div className="monitor-cost-total">{money(totalCost)}</div><div className="monitor-cost-list">{costMix.map(([label, amount]) => <div key={label}><span><i className={`cost-dot ${label.toLowerCase().replaceAll(' ', '-')}`} />{label}</span><b>{money(amount)}</b><small>{totalCost ? `${(Number(amount || 0) / totalCost * 100).toFixed(1)}%` : '0%'}</small></div>)}</div></Card></div>
+    </Card><Card title="Revenue by SOF" note={month ? monthName(month) : 'No report selected'} className="monitor-donut-card"><DonutChart rows={revenueBySof} total={revenueTotal} emptyLabel="No revenue by SOF for this month." /></Card><Card title="Cost breakdown" note={month ? monthName(month) : 'No report selected'} className="monitor-donut-card"><DonutChart rows={costMix.map(([label, value]) => ({ label, value: Number(value || 0) }))} total={totalCost} emptyLabel="No cost breakdown for this month." /></Card></div>
     <div className="monitor-grid monitor-lower"><Card title="Projects to review" note="Projects with negative gross profit in the selected month">{riskProjects.length ? <div className="monitor-risk-list">{riskProjects.map((row, index) => <div key={row.sof_base || row.sof_key || index}><span><b>{row.project_group || row.sof_label || `SOF ${row.sof_base || 'Unassigned'}`}</b><small>SOF {row.sof_base || row.sof_key || '—'}</small></span><strong>{money(row.gross_profit)}</strong></div>)}</div> : <p className="monitor-empty">No negative margin projects for this report period.</p>}</Card><Card title="Monitoring notes" note="Items that may need attention"><div className="monitor-notes">{Number(selected?.unassigned_count) > 0 && <p className="attention"><b>{number(selected.unassigned_count)} unassigned transactions</b><span>Review SOF mappings before month end.</span></p>}{Number(selected?.gross_profit) < 0 && <p className="attention"><b>Period gross loss</b><span>Costs exceed recognized revenue in this month.</span></p>}{selected && Number(selected.unassigned_count || 0) === 0 && Number(selected.gross_profit || 0) >= 0 && <p className="positive"><b>Reporting looks on track</b><span>No unassigned transactions or gross loss in this period.</span></p>}{!selected && <p className="monitor-empty">Choose a year and month with a report.</p>}</div></Card></div>
   </Shell>
 }
