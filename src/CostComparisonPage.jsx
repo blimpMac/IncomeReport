@@ -1,1 +1,311 @@
-YªçŠx-®éÜj×¢ëiºÚ+Š§j[h‘éÜ¢éíëµN‹Z–‹­¦ëeŠw¬Õ¥ºçm-¢G§²ÚîÆ­y
+import React, { useEffect, useMemo, useState } from 'react'
+import { money, supabase } from './lib.js'
+
+const num = v => Number(v || 0)
+const clamp = v => Math.min(1, Math.max(0, num(v)))
+const clean = v => String(v ?? '').replace(/\s+/g, ' ').trim()
+
+const baseOf = row => {
+  const raw = row?.sof_base ?? row?.sof_number ?? row?.sof_key ?? row?.sof_label ?? ''
+  const match = String(raw).match(/\d+/)
+  return match ? Number(match[0]) : null
+}
+
+const refBases = row => {
+  const raw = String(row?.sof_number || '').replace(/^SOF\s*/i, '').trim()
+  if (/^\d+(?:\s*(?:,|&)\s*\d+)+$/.test(raw)) return [...new Set(raw.match(/\d+/g).map(Number))]
+  const range = raw.match(/^(\d+)\s*-\s*(\d+)$/)
+  if (range && Number(range[2]) === Number(range[1]) + 1) return [Number(range[1]), Number(range[2])]
+  const base = baseOf(row)
+  return base == null ? [] : [base]
+}
+
+const rowBudgetTotal = row => {
+  const explicit = num(row?.total_cost_budget)
+  if (explicit) return explicit
+  return num(row?.materials_budget) + num(row?.labor_budget) + num(row?.overhead_budget)
+}
+const hasBomBudget = row => Math.abs(rowBudgetTotal(row)) > 0.005
+
+function projectNameForBase(base, references) {
+  const names = [...new Set(
+    references
+      .filter(row => refBases(row).includes(Number(base)))
+      .map(row => clean(row.project_name))
+      .filter(Boolean),
+  )]
+  return names[0] || 'Project name not available'
+}
+
+function Shell({ children }) {
+  return <div className="app-page"><main className="app-page-main">{children}</main></div>
+}
+
+function summarize(selection, summaries, references) {
+  const all = selection === 'all'
+  const selectedBase = all ? null : Number(selection)
+  const refs = references.filter(r => all || refBases(r).includes(selectedBase))
+  const tx = summaries.filter(s => all || baseOf(s) === selectedBase)
+  const uniqueRefs = [...new Map(refs.map(r => [r.source_row ?? r.id, r])).values()]
+  const budgetRefs = uniqueRefs.filter(hasBomBudget)
+  const budget = { materials:0, labor:0, overhead:0, total:0 }
+  const progressBudget = { materials:0, labor:0, overhead:0, total:0 }
+
+  for (const r of budgetRefs) {
+    const p = clamp(r.actual_pct)
+    const materials = num(r.materials_budget)
+    const labor = num(r.labor_budget)
+    const overhead = num(r.overhead_budget)
+    const total = rowBudgetTotal(r)
+    budget.materials += materials
+    budget.labor += labor
+    budget.overhead += overhead
+    budget.total += total
+    progressBudget.materials += materials * p
+    progressBudget.labor += labor * p
+    progressBudget.overhead += overhead * p
+    progressBudget.total += total * p
+  }
+
+  const actual = tx.reduce((a,s) => ({
+    revenue:a.revenue + num(s.revenue),
+    materials:a.materials + num(s.materials),
+    labor:a.labor + num(s.labor),
+    overhead:a.overhead + num(s.overhead),
+    other:a.other + num(s.other_cost),
+    total:a.total + num(s.total_cost),
+  }), { revenue:0,materials:0,labor:0,overhead:0,other:0,total:0 })
+
+  const referenceRows = uniqueRefs.length
+  const budgetRows = budgetRefs.length
+  const hasBom = budgetRows > 0
+  const coverageComplete = hasBom && budgetRows === referenceRows
+  const varianceAvailable = hasBom && (!all || coverageComplete)
+  const progress = hasBom && budget.total ? progressBudget.total / budget.total : null
+  const project = all ? 'Portfolio summary' : projectNameForBase(selectedBase, references)
+  const grossProfit = actual.revenue - actual.total
+  const grossMargin = actual.revenue ? grossProfit / actual.revenue : null
+  return { all, selectedBase, project, budget, progressBudget, actual, grossProfit, grossMargin, progress, referenceRows, budgetRows, hasBom, coverageComplete, varianceAvailable }
+}
+
+function comparisonRows(summary) {
+  const specs = [
+    ['Materials', 'materials'],
+    ['Labor', 'labor'],
+    ['Overhead', 'overhead'],
+  ]
+  const rows = specs.map(([label,key]) => {
+    const budget = summary.hasBom ? summary.budget[key] : null
+    const progressBudget = summary.hasBom ? summary.progressBudget[key] : null
+    const actual = summary.actual[key]
+    const variance = summary.varianceAvailable ? progressBudget - actual : null
+    let analysis
+    if (!summary.hasBom) analysis = 'No BOM cost budget is encoded in Reference Data for this SOF. Actual QuickBooks cost is shown only.'
+    else if (summary.all && !summary.coverageComplete) analysis = 'Partial portfolio BOM only. Variance is withheld because many Reference Data rows do not contain a cost budget.'
+    else if (actual <= 0.005) analysis = 'No QuickBooks cost posted against this category.'
+    else if (variance < 0) analysis = `${money(Math.abs(variance))} over the budget allowed by current project progress.`
+    else analysis = `${money(variance)} remains below the budget allowed by current project progress.`
+    return { label,budget,progressBudget,actual,variance,analysis }
+  })
+
+  if (Math.abs(summary.actual.other) > 0.005) rows.push({
+    label:'Other / Unmapped',
+    budget:null,
+    progressBudget:null,
+    actual:summary.actual.other,
+    variance:null,
+    analysis:'This QuickBooks cost has no matching BOM category. Review account classification and SOF allocation.',
+  })
+
+  const totalVariance = summary.varianceAvailable ? summary.progressBudget.total - summary.actual.total : null
+  let totalAnalysis
+  if (!summary.hasBom) totalAnalysis = 'BOM cost budget is not encoded in Reference Data, so total budget and variance are unavailable.'
+  else if (summary.all && !summary.coverageComplete) totalAnalysis = `Portfolio BOM coverage is incomplete (${summary.budgetRows} of ${summary.referenceRows} Reference Data rows). Actual cost is complete, but portfolio variance is intentionally not calculated.`
+  else if (totalVariance < 0) totalAnalysis = `Total actual cost exceeds the progress-based budget by ${money(Math.abs(totalVariance))}.`
+  else totalAnalysis = `Total actual cost is ${money(totalVariance)} below the progress-based budget.`
+  rows.push({ label:'Total', budget:summary.hasBom ? summary.budget.total : null, progressBudget:summary.hasBom ? summary.progressBudget.total : null, actual:summary.actual.total, variance:totalVariance, analysis:totalAnalysis })
+  return rows
+}
+
+function displayMoney(value, missingText = 'â€”') {
+  return value == null ? missingText : money(value)
+}
+
+function Stat({ label, note, value, danger=false, tone='green', missingText='â€”' }) {
+  const toneClass = danger ? 'border-rose-200 bg-rose-50' : tone === 'blue' ? 'border-blue-200 bg-blue-50' : 'border-emerald-200 bg-emerald-50'
+  return <div className={`costcompare-stat min-w-0 rounded-xl border p-3.5 text-center shadow-sm ${toneClass}`}>
+    <div className="text-[11px] font-extrabold uppercase tracking-wide text-slate-700">{label}</div>
+    <div className="mt-0.5 text-[10px] uppercase leading-4 tracking-wide text-slate-500">{note}</div>
+    <div className={`costcompare-stat-value mt-2.5 font-extrabold tabular-nums ${danger ? 'text-rose-700' : 'text-slate-900'}`}>{value == null ? missingText : money(value)}</div>
+  </div>
+}
+
+export default function CostComparisonPage() {
+  const [summaries,setSummaries] = useState([])
+  const [references,setReferences] = useState([])
+  const [selection,setSelection] = useState('all')
+  const [error,setError] = useState('')
+  const [breakdownCategory,setBreakdownCategory] = useState('Labor')
+  const [breakdownRows,setBreakdownRows] = useState([])
+  const [breakdownLoading,setBreakdownLoading] = useState(true)
+  const [breakdownError,setBreakdownError] = useState('')
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from('income_sof_summary').select('*').limit(2000),
+      supabase.from('income_reference_projects').select('*').limit(2000),
+    ]).then(([a,b]) => {
+      if (a.error || b.error) setError(a.error?.message || b.error?.message)
+      else { setSummaries(a.data || []); setReferences(b.data || []); setError('') }
+    })
+  }, [])
+
+  // Source of truth: server-side sum of ready QB entries. Never fetch an
+  // arbitrary 1,000-row subset or double-count repeated dated uploads.
+  useEffect(() => {
+    let cancelled = false
+    setBreakdownLoading(true)
+    setBreakdownError('')
+    setBreakdownRows([])
+    supabase.rpc('income_cost_account_breakdown', {
+      p_sof_base: selection === 'all' ? null : String(selection),
+    }).then(({ data, error: loadError }) => {
+      if (cancelled) return
+      if (loadError) setBreakdownError(loadError.message)
+      else setBreakdownRows(data || [])
+      setBreakdownLoading(false)
+    }).catch(loadError => {
+      if (cancelled) return
+      setBreakdownError(loadError?.message || 'Unable to load account breakdown.')
+      setBreakdownLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [selection])
+
+  const options = useMemo(() => {
+    const bases = [...new Set([...summaries.map(baseOf), ...references.flatMap(refBases)].filter(x => x != null))].sort((a,b) => a-b)
+    return bases.map(base => {
+      const refs = references.filter(row => refBases(row).includes(base))
+      return { base, project: projectNameForBase(base, references), hasBom: refs.some(hasBomBudget) }
+    })
+  }, [summaries,references])
+
+  const summary = useMemo(() => summarize(selection,summaries,references), [selection,summaries,references])
+  const rows = useMemo(() => comparisonRows(summary), [summary])
+  const total = rows[rows.length - 1]
+  const accountRows = useMemo(() => (
+    breakdownRows.filter(row => row.category === breakdownCategory)
+      .sort((a,b) => Math.abs(num(b.net_cost)) - Math.abs(num(a.net_cost)))
+  ), [breakdownRows,breakdownCategory])
+  const accountTotal = accountRows.reduce((sum,row) => sum + num(row.net_cost),0)
+  const expectedCategoryActual = summary.actual[breakdownCategory.toLowerCase()]
+  const hasBreakdownMismatch = !breakdownLoading && !breakdownError &&
+    Math.abs(accountTotal - expectedCategoryActual) > .015
+  const selectedLabel = summary.all ? 'All SOFs' : `SOF ${summary.selectedBase}`
+  const coverageMessage = summary.all
+    ? `BOM coverage: ${summary.budgetRows} of ${summary.referenceRows} Reference Data rows currently have a cost budget.${summary.coverageComplete ? '' : ' Portfolio variance is intentionally unavailable until BOM coverage is complete.'}`
+    : !summary.hasBom
+      ? 'No BOM cost budget is encoded in Reference Data for this SOF. Actual QuickBooks costs are shown; budget and variance fields are unavailable.'
+      : summary.budgetRows < summary.referenceRows
+        ? `This SOF has BOM data on ${summary.budgetRows} of ${summary.referenceRows} matching Reference Data rows. The comparison uses the available encoded budget.`
+        : ''
+
+  return <Shell>
+    <div className="costcompare-page min-w-0">
+      <div className="mb-5 flex min-w-0 flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+        <div className="min-w-0"><h1 className="text-2xl font-semibold text-slate-950">Project Profitability Analysis</h1><p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">Project budgets, recorded costs, and gross profit from QuickBooks.</p></div>
+        <label className="block w-full min-w-0 xl:w-[500px]">
+          <span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">SOF scope</span>
+          <select value={selection} onChange={e => setSelection(e.target.value)} className="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700 shadow-sm">
+            <option value="all">All SOFs â€” Portfolio Summary</option>
+            {options.map(item => <option key={item.base} value={item.base}>SOF {item.base} â€” {item.project}{item.hasBom ? '' : ' â€” No BOM budget'}</option>)}
+          </select>
+        </label>
+      </div>
+
+      {error && <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-4 text-sm text-rose-700">{error}</div>}
+      {coverageMessage && <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900"><b>Data coverage:</b> {coverageMessage}</div>}
+
+      <section className="cost-comparison-section !mt-0">
+        <div className="cost-comparison-title">
+          <div className="min-w-0"><h3>{summary.all ? 'Portfolio Summary' : summary.project}</h3><p className="costcompare-project-name">{selectedLabel} Â· budget, actual cost, and gross profit</p></div>
+          <div className="cost-comparison-brand"><strong>GREENLIGHT POWER</strong></div>
+        </div>
+
+        <div className="cost-stat-grid">
+          <div className="costcompare-stat costcompare-progress-stat min-w-0 rounded-xl border border-emerald-200 bg-emerald-50 p-3.5 text-center shadow-sm">
+            <div className="text-[11px] font-extrabold uppercase tracking-wide text-slate-700">Project Progress</div>
+            <div className="costcompare-progress-ring" style={{ '--progress': `${summary.progress == null ? 0 : summary.progress * 100}%` }}><span>{summary.progress == null ? 'â€”' : `${(summary.progress * 100).toFixed(1)}%`}</span></div>
+            {!summary.hasBom && <div className="text-[10px] text-slate-500">No BOM budget</div>}
+          </div>
+          <Stat label="Planned Cost" note="BOM budget based on progress" value={summary.hasBom ? summary.progressBudget.total : null} tone="blue" />
+          <Stat label="Actual Cost to Date" note="QuickBooks recorded cost" value={summary.actual.total} />
+          <Stat label="Cost Variance" note="Progress-based budget minus actual" value={total.variance} danger={total.variance != null && total.variance < 0} tone="blue" missingText="Unavailable" />
+          <Stat label="Gross Profit / (Loss)" note={summary.grossMargin == null ? 'No recorded revenue' : `${(summary.grossMargin * 100).toFixed(1)}% gross margin`} value={summary.actual.revenue ? summary.grossProfit : null} danger={summary.grossProfit < 0} missingText="Unavailable" />
+        </div>
+
+        <div className="cost-table-wrap">
+          <table className="cost-table costcompare-table">
+            <thead><tr><th>Account</th><th>BOM</th><th>BOM Based on Progress</th><th>Actual</th><th>Variance vs. On Progress</th><th>Analysis</th></tr></thead>
+            <tbody>{rows.map(r => <tr key={r.label} className={r.label === 'Total' ? 'cost-total-row' : ''}>
+              <td>{r.label}</td>
+              <td><span className="costcompare-money">{displayMoney(r.budget, r.label === 'Other / Unmapped' ? 'No BOM category' : 'â€”')}</span></td>
+              <td><span className="costcompare-money">{displayMoney(r.progressBudget)}</span></td>
+              <td><span className="costcompare-money">{money(r.actual)}</span></td>
+              <td className={r.variance == null ? '' : r.variance < 0 ? 'cost-negative' : 'cost-positive'}><span className="costcompare-money">{displayMoney(r.variance)}</span></td>
+              <td>{r.analysis}</td>
+            </tr>)}</tbody>
+          </table>
+        </div>
+      </section>
+
+      <details className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-4 font-semibold text-slate-800 hover:bg-slate-50">
+          <span className="flex items-center gap-2"><span aria-hidden="true" className="text-blue-600">â–¾</span> View Account Breakdown</span>
+        </summary>
+        <div className="border-t border-slate-200 px-4 pb-4 pt-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <label className="block min-w-0 sm:w-72">
+              <span className="mb-1 block text-xs font-semibold text-slate-600">Choose cost category</span>
+              <select value={breakdownCategory} onChange={e => setBreakdownCategory(e.target.value)} className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-semibold text-slate-700">
+                <option value="Labor">Labor</option>
+                <option value="Overhead">Overhead</option>
+                <option value="Materials">Materials</option>
+                <option value="Other">Other / Unmapped</option>
+              </select>
+            </label>
+            <div className="text-left sm:text-right">
+              <div className="text-lg font-bold tabular-nums text-slate-900">{breakdownLoading ? 'Loadingâ€¦' : breakdownError ? 'Unavailable' : money(accountTotal)}</div>
+            </div>
+          </div>
+
+          {breakdownError && <div role="alert" className="mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">{breakdownError}</div>}
+          {hasBreakdownMismatch && <div role="alert" className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">Account breakdown does not reconcile to the Cost Comparison summary. Please review this category before relying on the figures.</div>}
+          {breakdownLoading ? <div className="mt-4 py-6 text-center text-sm text-slate-500">Loading the exact QuickBooks account totalsâ€¦</div> :
+            !breakdownError && (accountRows.length === 0
+              ? <div className="mt-4 rounded-lg bg-slate-50 px-3 py-5 text-center text-sm text-slate-500">No {breakdownCategory} transactions for this selection.</div>
+              : <div className="mt-4 overflow-hidden rounded-lg border border-slate-200">
+                  <div className="hidden grid-cols-[minmax(0,2fr)_85px_repeat(3,minmax(0,1fr))] gap-2 border-b border-slate-200 bg-slate-50 px-3 py-2 text-[11px] font-bold uppercase tracking-wide text-slate-500 lg:grid">
+                    <span>QuickBooks Account</span><span className="text-right">Entries</span><span className="text-right">Debit</span><span className="text-right">Credit</span><span className="text-right">Net Actual Cost</span>
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {accountRows.map((item,index) => <div key={`${item.account}-${index}`} className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-2 px-3 py-3 text-sm lg:grid-cols-[minmax(0,2fr)_85px_repeat(3,minmax(0,1fr))] lg:items-center">
+                      <div className="col-span-2 min-w-0 break-words font-semibold text-slate-800 lg:col-span-1">{item.account}</div>
+                      <div className="text-right lg:text-right"><span className="block text-[11px] text-slate-500 lg:hidden">Entries</span><span className="tabular-nums">{num(item.transaction_count).toLocaleString('en-PH')}</span></div>
+                      <div className="text-right"><span className="block text-[11px] text-slate-500 lg:hidden">Debit</span><span className="tabular-nums">{money(item.debit)}</span></div>
+                      <div className="text-right"><span className="block text-[11px] text-slate-500 lg:hidden">Credit</span><span className="tabular-nums">{money(item.credit)}</span></div>
+                      <div className="text-right font-bold text-slate-900"><span className="block text-[11px] font-normal text-slate-500 lg:hidden">Net Actual Cost</span><span className="tabular-nums">{money(item.net_cost)}</span></div>
+                    </div>)}
+                  </div>
+                  <div className="flex flex-wrap justify-between gap-2 border-t border-blue-100 bg-blue-50 px-3 py-3 text-sm font-bold">
+                    <span>{breakdownCategory} Total</span>
+                    <span className="tabular-nums">{money(accountTotal)}</span>
+                  </div>
+                </div>)
+          }
+        </div>
+      </details>
+
+    </div>
+  </Shell>
+}
