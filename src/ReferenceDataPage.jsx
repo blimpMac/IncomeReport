@@ -75,8 +75,8 @@ function groupReference(base, references) {
     base,
     sof: `SOF ${base}`,
     project: clean(ref?.project_name) || 'Project not available',
-    client: clean(ref?.client_name) || clean(ref?.project_owner) || '—',
-    status: clean(ref?.project_status) || '—',
+    client: clean(ref?.client_name) || clean(ref?.project_owner) || 'â€”',
+    status: clean(ref?.project_status) || 'â€”',
     contract,
     estimatedCost,
     estimatedGp,
@@ -98,8 +98,8 @@ function buildMasterRows(references) {
     base: null,
     sof: clean(row.sof_number) || 'No SOF',
     project: clean(row.project_name) || 'Project not available',
-    client: clean(row.client_name) || clean(row.project_owner) || '—',
-    status: clean(row.project_status) || '—',
+    client: clean(row.client_name) || clean(row.project_owner) || 'â€”',
+    status: clean(row.project_status) || 'â€”',
     contract: contractTotal(row),
     estimatedCost: hasBudget(row) ? budgetTotal(row) : null,
     estimatedGp: hasBudget(row) ? contractTotal(row) - budgetTotal(row) : null,
@@ -145,13 +145,13 @@ function buildRegister(references, summaries) {
 }
 
 function MoneyCell({ value, emphasize = false, signed = false }) {
-  if (value == null) return <span className="text-slate-400">—</span>
+  if (value == null) return <span className="text-slate-400">â€”</span>
   const negative = Number(value) < 0
   return <span className={`${emphasize ? 'font-semibold' : ''} ${signed ? (negative ? 'text-rose-700' : 'text-emerald-700') : ''} whitespace-nowrap tabular-nums`}>{money(value)}</span>
 }
 
 function PercentCell({ value }) {
-  if (value == null || !Number.isFinite(Number(value))) return <span className="text-slate-400">—</span>
+  if (value == null || !Number.isFinite(Number(value))) return <span className="text-slate-400">â€”</span>
   return <span className={`whitespace-nowrap font-semibold tabular-nums ${Number(value) < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{Number(value).toFixed(2)}%</span>
 }
 
@@ -190,23 +190,49 @@ export default function ReferenceDataPage() {
   const [page, setPage] = useState(0)
   const [expanded, setExpanded] = useState([])
   const [error, setError] = useState('')
+  const [summaryError, setSummaryError] = useState('')
+  const [summariesLoaded, setSummariesLoaded] = useState(false)
   const toggleExpanded = key => setExpanded(current => current.includes(key)
     ? current.filter(x => x !== key)
     : [...current, key])
 
   useEffect(() => {
-    Promise.all([
-      supabase.from('income_reference_projects').select('*').limit(2000),
-      supabase.from('income_sof_summary').select('*').limit(2000),
-    ]).then(([a, b]) => {
-      if (a.error || b.error) setError(a.error?.message || b.error?.message)
-      else {
-        setReferences(a.data || [])
-        setSummaries(b.data || [])
-        setError('')
-      }
-    })
+    if (!supabase) {
+      setError('Supabase environment variables are missing.')
+      return
+    }
+
+    let active = true
+    supabase.from('income_reference_projects')
+      .select('id,source_row,sof_number,sof_key,sof_base,project_name,client_name,project_owner,project_status,remarks,contract_value,final_contract_value,total_cost_budget,materials_budget,labor_budget,overhead_budget')
+      .limit(2000)
+      .then(({ data, error: queryError }) => {
+        if (!active) return
+        if (queryError) setError(queryError.message)
+        else {
+          setReferences(data || [])
+          setError('')
+        }
+      })
+    return () => { active = false }
   }, [])
+
+  useEffect(() => {
+    if (tab !== 'summary' || summariesLoaded || !supabase) return
+
+    let active = true
+    supabase.from('income_sof_summary').select('*').limit(2000)
+      .then(({ data, error: queryError }) => {
+        if (!active) return
+        if (queryError) setSummaryError(queryError.message)
+        else {
+          setSummaries(data || [])
+          setSummariesLoaded(true)
+          setSummaryError('')
+        }
+      })
+    return () => { active = false }
+  }, [tab, summariesLoaded])
 
   const masterRows = useMemo(() => buildMasterRows(references), [references])
 
@@ -231,9 +257,9 @@ export default function ReferenceDataPage() {
         <p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">Project master information and a consolidated SOF financial register using Reference Data estimates and QuickBooks actuals.</p>
       </div>
       <label className="relative block w-full max-w-md">
-        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">⌕</span>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search SOF, project, client, or status…" className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-9 pr-9 text-sm shadow-sm" />
-        {search && <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">×</button>}
+        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-400">âŒ•</span>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search SOF, project, client, or statusâ€¦" className="w-full rounded-lg border border-slate-300 bg-white py-2.5 pl-9 pr-9 text-sm shadow-sm" />
+        {search && <button type="button" onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700">Ã—</button>}
       </label>
     </div>
 
@@ -242,7 +268,7 @@ export default function ReferenceDataPage() {
       <button onClick={() => setTab('summary')} className={`whitespace-nowrap rounded-lg px-4 py-2 text-sm font-semibold transition ${tab === 'summary' ? 'bg-slate-900 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-100'}`}>SOF Financial Register</button>
     </div>
 
-    {error && <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
+    {(tab === 'master' ? error : summaryError || error) && <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{tab === 'master' ? error : summaryError || error}</div>}
 
     {tab === 'master' ? <section className="min-w-0 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-semibold text-slate-900">Reference Master</h2><p className="mt-1 text-xs text-slate-500">Consolidated parent SOFs. VO/variation contract amounts are included in the parent; expand a row to inspect source entries.</p></div>
@@ -258,7 +284,7 @@ export default function ReferenceDataPage() {
               <td className="px-3 py-3"><MoneyCell value={row.contract} /></td>
               <td className="px-3 py-3"><MoneyCell value={row.estimatedCost} />{row.estimatedCost != null && row.missingBudgetCount > 0 && <div className="text-[10px] text-amber-700">Partial BOM</div>}</td>
               <td className="px-3 py-3 text-xs leading-5 text-slate-500">
-                {clean(row.members[0]?.remarks) || (row.members.length > 1 ? 'VO / extension entries available' : '—')}
+                {clean(row.members[0]?.remarks) || (row.members.length > 1 ? 'VO / extension entries available' : 'â€”')}
                 {row.sharedCount > 0 && <div className="mt-1 text-[10px] text-amber-700">Shared SOF reference not allocated to prevent double-counting</div>}
               </td>
             </tr>
@@ -268,10 +294,10 @@ export default function ReferenceDataPage() {
                   <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">Included source entries for {row.sof}</div>
                   <div className="divide-y divide-slate-100">{row.members.map((item, i) => <div key={item.id || item.source_row || i}
                     className="grid grid-cols-2 items-start gap-x-3 gap-y-1 px-3 py-2 text-[11px] sm:grid-cols-[minmax(130px,1.1fr)_minmax(145px,1fr)_minmax(140px,1fr)_minmax(100px,.7fr)]">
-                    <div className="font-semibold text-slate-700">{item.sof_number || '—'}{referenceBases(item).length > 1 && <span className="ml-1 font-normal text-amber-700">(shared)</span>}</div>
+                    <div className="font-semibold text-slate-700">{item.sof_number || 'â€”'}{referenceBases(item).length > 1 && <span className="ml-1 font-normal text-amber-700">(shared)</span>}</div>
                     <div className="tabular-nums text-slate-700">{referenceBases(item).length > 1 ? 'Unallocated' : money(contractTotal(item))}</div>
                     <div className="tabular-nums text-slate-600">{hasBudget(item) ? money(budgetTotal(item)) : 'No BOM data'}</div>
-                    <div className="text-slate-500">{clean(item.project_status) || '—'}</div>
+                    <div className="text-slate-500">{clean(item.project_status) || 'â€”'}</div>
                   </div>)}</div>
                 </div>
               </td>
@@ -289,7 +315,7 @@ export default function ReferenceDataPage() {
             <select aria-label="Filter SOF Financial Register" value={sofFilter} onChange={event => setSofFilter(event.target.value)}
               className="w-full min-w-0 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-100">
               <option value="all">ALL SOFs</option>
-              {register.map(row => <option key={row.groupKey} value={String(row.base)}>{row.sof} — {row.project}</option>)}
+              {register.map(row => <option key={row.groupKey} value={String(row.base)}>{row.sof} â€” {row.project}</option>)}
             </select>
           </label>
           <span className="inline-flex h-9 shrink-0 items-center self-start whitespace-nowrap rounded-full bg-indigo-50 px-3 text-xs font-semibold text-indigo-700 sm:self-end">
@@ -324,16 +350,16 @@ export default function ReferenceDataPage() {
             {expanded.includes(row.groupKey) && row.members.length > 1 && <tr className="bg-indigo-50/30">
               <td colSpan={12} className="!w-auto !p-3">
                 <div className="max-w-full rounded-lg border border-slate-200 bg-white">
-                  <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">Contract breakdown for {row.sof} — includes parent and VO / extension entries</div>
+                  <div className="border-b border-slate-100 px-3 py-2 text-xs font-semibold text-slate-700">Contract breakdown for {row.sof} â€” includes parent and VO / extension entries</div>
                   <div className="divide-y divide-slate-100">
                     {row.members.map((item, i) => <div key={item.id || item.source_row || i} className="grid grid-cols-2 gap-2 px-3 py-2 text-[11px] sm:grid-cols-4">
-                      <span className="font-semibold text-slate-700">{item.sof_number || '—'}{referenceBases(item).length > 1 && ' (shared)'}</span>
+                      <span className="font-semibold text-slate-700">{item.sof_number || 'â€”'}{referenceBases(item).length > 1 && ' (shared)'}</span>
                       <span className="tabular-nums text-slate-700">{referenceBases(item).length > 1 ? 'Unallocated' : money(contractTotal(item))}</span>
                       <span className="text-slate-500">Est. cost: {hasBudget(item) ? money(budgetTotal(item)) : 'No BOM'}</span>
-                      <span className="text-slate-500">{clean(item.project_status) || '—'}</span>
+                      <span className="text-slate-500">{clean(item.project_status) || 'â€”'}</span>
                     </div>)}
                   </div>
-                  <div className="border-t border-slate-200 px-3 py-2 text-right text-xs font-semibold text-slate-800">Total Contract Price: {row.contract == null ? '—' : money(row.contract)}</div>
+                  <div className="border-t border-slate-200 px-3 py-2 text-right text-xs font-semibold text-slate-800">Total Contract Price: {row.contract == null ? 'â€”' : money(row.contract)}</div>
                 </div>
               </td>
             </tr>}
@@ -344,3 +370,4 @@ export default function ReferenceDataPage() {
     </section>}
   </div>
 }
+
