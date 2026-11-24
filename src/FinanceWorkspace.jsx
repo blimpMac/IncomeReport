@@ -51,10 +51,22 @@ function useMonths() {
   const [error, setError] = useState('')
   useEffect(() => {
     let active = true
-    supabase.rpc('income_dashboard_filtered', { p_month: null, p_sof_base: null }).then(({ data, error: e }) => {
+    // This screen only needs the available month keys. The all-period dashboard
+    // RPC also builds every SOF/account aggregate, which can exceed the DB
+    // statement timeout on a large transaction history.
+    supabase.from('income_transactions_ready')
+      .select('transaction_date')
+      .not('transaction_date', 'is', null)
+      .order('transaction_date', { ascending: false })
+      .limit(10000)
+      .then(({ data, error: e }) => {
       if (!active) return
       if (e) setError(e.message)
-      else setMonths(data?.months || [])
+      else {
+        const availableMonths = [...new Set((data || []).map(row => row.transaction_date?.slice(0, 7)).filter(Boolean))]
+        setMonths(availableMonths)
+        setError('')
+      }
     })
     return () => { active = false }
   }, [])
@@ -81,12 +93,12 @@ function MainDashboard() {
     let active = true
     if (!selectedMonths.length) { setReports([]); setLoading(false); return }
     setLoading(true)
-    Promise.all(selectedMonths.map(month => supabase.rpc('income_dashboard_filtered', { p_month: `${month}-01`, p_sof_base: null })))
+    Promise.all(selectedMonths.map(month => supabase.rpc('income_monthly_report', { p_month: `${month}-01` })))
       .then(results => {
         if (!active) return
         const failed = results.find(result => result.error)
         if (failed) setError(failed.error.message)
-        else { setError(''); setReports(results.map((result, i) => ({ month: selectedMonths[i], ...(result.data?.report || {}) }))) }
+        else { setError(''); setReports(results.map((result, i) => ({ month: selectedMonths[i], ...(result.data || {}) }))) }
         setLoading(false)
       })
     return () => { active = false }
