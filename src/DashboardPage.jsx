@@ -73,7 +73,7 @@ function Shell({ children }) {
     </aside>
     <div className="min-w-0 flex-1">
       <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-emerald-100 bg-white/95 px-4 backdrop-blur md:hidden">
-        <button aria-label={open ? 'Close navigation' : 'Open navigation'} aria-expanded={open} className="grid h-9 w-9 place-items-center rounded-lg border border-emerald-100 text-[#173b68]" onClick={() => setOpen(v => !v)}>{open ? 'Ã—' : 'â˜°'}</button>
+        <button aria-label={open ? 'Close navigation' : 'Open navigation'} aria-expanded={open} className="grid h-9 w-9 place-items-center rounded-lg border border-emerald-100 text-[#173b68]" onClick={() => setOpen(v => !v)}>{open ? '×' : '☰'}</button>
         <span className="text-sm font-semibold text-slate-800">E-WORKS Income Report</span>
       </header>
       <main className="mx-auto w-full min-w-0 max-w-[1500px] overflow-x-hidden p-4 lg:p-6 xl:p-8">{children}</main>
@@ -135,7 +135,7 @@ function CostMixChart({ report, scope }) {
     </div>
     <div className="mt-5 grid items-center gap-5 sm:grid-cols-[180px_1fr]">
       <div className="relative mx-auto h-40 w-40 rounded-full" style={{ background: total ? `conic-gradient(${stops})` : '#eef1f5' }}>
-        <div className="absolute inset-[22px] grid place-items-center rounded-full bg-white text-center"><div><div className="text-[11px] uppercase tracking-wide text-slate-400">Total cost</div><div className="mt-1 text-lg font-semibold text-slate-800">â‚±{compactMoney(total)}</div></div></div>
+        <div className="absolute inset-[22px] grid place-items-center rounded-full bg-white text-center"><div><div className="text-[11px] uppercase tracking-wide text-slate-400">Total cost</div><div className="mt-1 text-lg font-semibold text-slate-800">₱{compactMoney(total)}</div></div></div>
       </div>
       <div className="space-y-3">{parts.map(([label, value, color]) => <div key={label} className="flex items-center justify-between gap-3">
         <span className="flex min-w-0 items-center gap-2 text-xs font-medium text-slate-600"><span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: color }} />{label}</span>
@@ -149,7 +149,7 @@ function ExposureChart({ rows, scope }) {
   const data = [...(rows || [])].filter(x => Number(x.total_cost || 0) || Number(x.revenue || 0)).sort((a, b) => Number(b.total_cost || 0) - Number(a.total_cost || 0)).slice(0, 6)
   const max = Math.max(1, ...data.flatMap(x => [Number(x.total_cost || 0), Number(x.revenue || 0)]))
   return <Card className="p-5">
-    <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">SOF cost vs revenue</h2><p className="mt-1 text-xs text-slate-500">{scope}</p></div><button onClick={() => go('sof')} className="text-xs font-semibold text-blue-700">SOF Analysis â†’</button></div>
+    <div className="flex items-start justify-between gap-3"><div><h2 className="font-semibold">SOF cost vs revenue</h2><p className="mt-1 text-xs text-slate-500">{scope}</p></div><button onClick={() => go('sof')} className="text-xs font-semibold text-blue-700">SOF Analysis →</button></div>
     <div className="mt-5 space-y-4">{data.map(row => <div key={row.sof_base || row.sof_label}>
       <div className="mb-1.5 flex items-center justify-between gap-3 text-xs"><span className="font-semibold text-slate-700">{displaySof(row)}</span><span className="whitespace-nowrap text-slate-400">Cost {money(row.total_cost)}</span></div>
       <div className="space-y-1"><div className="h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-blue-600" style={{ width: `${Math.max(1.5, Number(row.total_cost || 0) / max * 100)}%` }} /></div><div className="h-1.5 rounded-full bg-slate-100"><div className="h-1.5 rounded-full bg-emerald-500" style={{ width: `${Number(row.revenue || 0) ? Math.max(1.5, Number(row.revenue || 0) / max * 100) : 0}%` }} /></div></div>
@@ -183,10 +183,10 @@ function Remarks({ report, sofRows, scope }) {
 
 function Transactions({ rows, scope }) {
   return <Card>
-    <div className="border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-semibold">Recent transactions</h2><p className="mt-1 text-xs text-slate-500">Latest QuickBooks activity Â· {scope}</p></div>
+    <div className="border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-semibold">Recent transactions</h2><p className="mt-1 text-xs text-slate-500">Latest QuickBooks activity · {scope}</p></div>
     <div className="w-full max-w-full overflow-x-auto"><table className="w-full min-w-[780px] text-left text-sm">
       <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-3 py-3">Date</th><th className="px-3 py-3">SOF</th><th className="px-3 py-3">Type</th><th className="px-3 py-3">Account</th><th className="whitespace-nowrap px-3 py-3 text-right">Debit</th><th className="whitespace-nowrap px-3 py-3 text-right">Credit</th></tr></thead>
-      <tbody className="divide-y divide-slate-100">{rows.map(row => <tr key={row.id}><td className="whitespace-nowrap px-3 py-3">{shortDate(row.transaction_date)}</td><td className="px-3 py-3 font-medium">{displaySof(row)}</td><td className="px-3 py-3">{row.type || 'â€”'}</td><td className="px-3 py-3">{row.account || 'â€”'}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.debit)}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.credit)}</td></tr>)}</tbody>
+      <tbody className="divide-y divide-slate-100">{rows.map(row => <tr key={row.id}><td className="whitespace-nowrap px-3 py-3">{shortDate(row.transaction_date)}</td><td className="px-3 py-3 font-medium">{displaySof(row)}</td><td className="px-3 py-3">{row.type || '—'}</td><td className="px-3 py-3">{row.account || '—'}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.debit)}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.credit)}</td></tr>)}</tbody>
     </table>{!rows.length && <div className="p-8 text-center text-sm text-slate-500">No transactions match the selected filters.</div>}</div>
   </Card>
 }
@@ -246,8 +246,8 @@ export default function DashboardPage() {
 
   const selectedProject = sof === 'all' ? '' : (sofOptions.find(item => String(item.sof_base) === String(sof))?.project || '')
   const period = monthLabel(month)
-  const sofScope = sof === 'all' ? 'All SOFs' : `SOF ${sof}${selectedProject ? ` â€” ${selectedProject}` : ''}`
-  const scope = `${period} Â· ${sofScope}`
+  const sofScope = sof === 'all' ? 'All SOFs' : `SOF ${sof}${selectedProject ? ` — ${selectedProject}` : ''}`
+  const scope = `${period} · ${sofScope}`
   const grossTone = Number(report?.gross_profit || 0) < 0 ? 'rose' : 'emerald'
 
   return <Shell>
@@ -255,7 +255,7 @@ export default function DashboardPage() {
       <div className="min-w-0"><h1 className="text-2xl font-semibold text-slate-950">Dashboard</h1><p className="mt-1 max-w-3xl text-sm leading-6 text-slate-500">Income, costs, and project performance from QuickBooks.</p></div>
       <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row xl:w-auto">
         <FilterSelect label="Month" value={month} onChange={setMonth}><option value="all">ALL Months</option>{months.map(value => <option key={value} value={value}>{monthLabel(value)}</option>)}</FilterSelect>
-        <FilterSelect label="SOF" value={sof} onChange={setSof} minWidth="310px"><option value="all">ALL SOFs</option>{sofOptions.map(item => <option key={item.sof_base} value={item.sof_base}>SOF {item.sof_base}{item.project ? ` â€” ${item.project}` : ''}</option>)}</FilterSelect>
+        <FilterSelect label="SOF" value={sof} onChange={setSof} minWidth="310px"><option value="all">ALL SOFs</option>{sofOptions.map(item => <option key={item.sof_base} value={item.sof_base}>SOF {item.sof_base}{item.project ? ` — ${item.project}` : ''}</option>)}</FilterSelect>
         <button onClick={() => go('upload')} className="self-end rounded-lg bg-emerald-700 px-3.5 py-2.5 text-sm font-medium text-white hover:bg-emerald-800">Upload file</button>
       </div>
     </div>
@@ -263,7 +263,7 @@ export default function DashboardPage() {
     <div className="mb-4 flex flex-wrap items-center gap-2 text-xs"><span className="rounded-full bg-blue-50 px-3 py-1.5 font-semibold text-blue-700">Month: {period}</span><span className="max-w-full truncate rounded-full bg-emerald-50 px-3 py-1.5 font-semibold text-emerald-700">SOF: {sofScope}</span>{(month !== 'all' || sof !== 'all') && <button onClick={() => { setMonth('all'); setSof('all') }} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 font-semibold text-slate-500 hover:text-slate-800">Reset to ALL</button>}</div>
 
     {error && <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
-    {loading && !report && <div className="mb-4 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-500">Loading filtered dashboardâ€¦</div>}
+    {loading && !report && <div className="mb-4 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-500">Loading filtered dashboard…</div>}
 
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <Stat label="Revenue" value={money(report?.revenue)} tone="emerald" />

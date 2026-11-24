@@ -317,20 +317,34 @@ function Upload() {
 }
 
 function Monthly() {
-  const latest = useLatest()
-  const [month, setMonth] = useState(monthInput())
+  const [month, setMonth] = useState('')
+  const [availableMonths, setAvailableMonths] = useState([])
   const [r, setR] = useState(null)
   const [rows, setRows] = useState([])
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [err, setErr] = useState('')
-  useEffect(() => { if (latest) setMonth(latest.report_date.slice(0, 7)) }, [latest])
   useEffect(() => {
+    let cancelled = false
+    supabase.rpc('income_dashboard_filtered', { p_month: null, p_sof_base: null }).then(({ data, error }) => {
+      if (cancelled) return
+      if (error) { setErr(error.message); return }
+      const months = [...new Set((data?.months || []).filter(value => /^\d{4}-\d{2}$/.test(value)))].sort().reverse()
+      setAvailableMonths(months)
+      setMonth(current => months.includes(current) ? current : months[0] || '')
+    })
+    return () => { cancelled = true }
+  }, [])
+  useEffect(() => {
+    if (!month) { setR(null); setRows([]); return }
     Promise.all([supabase.rpc('income_monthly_report', { p_month: month + '-01' }), supabase.rpc('income_monthly_sof_summary', { p_month: month + '-01' })]).then(([a, b]) => {
       if (a.error || b.error) setErr(a.error?.message || b.error?.message)
       else { setR(a.data); setRows([...(b.data || [])].sort(compareSof)); setPage(0); setErr('') }
     })
   }, [month])
+  const availableYears = [...new Set(availableMonths.map(value => value.slice(0, 4)))].sort().reverse()
+  const selectedYear = month.slice(0, 4)
+  const yearMonths = availableMonths.filter(value => value.startsWith(`${selectedYear}-`))
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return rows
@@ -340,7 +354,8 @@ function Monthly() {
   const data = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
   const grossTone = Number(r?.gross_profit || 0) < 0 ? 'rose' : 'emerald'
   return <>
-    <Header title="Monthly Report" sub="End-of-month financial report. Search an SOF or review the month in numeric SOF order." actions={<><SearchInput value={search} onChange={setSearch} placeholder="Search SOF…" /><MonthPicker value={month} onChange={setMonth} label="Report month" /><Button secondary onClick={() => window.print()}>Print / PDF</Button></>} />
+    <Header title="Monthly Report" sub="End-of-month financial report. Search an SOF or review the month in numeric SOF order." actions={<><SearchInput value={search} onChange={setSearch} placeholder="Search SOF…" /><label className="block"><span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Report year</span><select value={selectedYear} onChange={e => setMonth(availableMonths.find(value => value.startsWith(`${e.target.value}-`)) || '')} disabled={!availableYears.length} className="min-w-[110px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">{availableYears.map(year => <option key={year} value={year}>{year}</option>)}</select></label><label className="block"><span className="mb-1 block text-[10px] font-bold uppercase tracking-[0.12em] text-slate-400">Report month</span><select value={month} onChange={e => setMonth(e.target.value)} disabled={!yearMonths.length} className="min-w-[154px] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm">{yearMonths.map(value => <option key={value} value={value}>{monthLabel(value)}</option>)}</select></label><Button secondary onClick={() => window.print()}>Print / PDF</Button></>} />
+    {!availableMonths.length && !err && <div className="mb-4 rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-500">No reports found in the stacked transaction data.</div>}
     <ErrorBox v={err} />
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><Stat label="Revenue" value={money(r?.revenue)} tone="emerald" /><Stat label="Materials" value={money(r?.materials)} tone="indigo" /><Stat label="Labor" value={money(r?.labor)} tone="cyan" /><Stat label="Overhead" value={money(r?.overhead)} tone="amber" /><Stat label="Gross Profit" value={money(r?.gross_profit)} note={`Margin ${pct(r?.margin_pct)}`} tone={grossTone} /></div>
     <div className="mt-5 grid min-w-0 gap-5 2xl:grid-cols-[minmax(0,1fr)_440px]">

@@ -49,7 +49,7 @@ function SofActions() {
       <button type="button" className="sof-xlsx-button" onClick={() => window.dispatchEvent(new Event('sof-export-xlsx'))}>Export as XLSX</button>
     </div>
     <button type="button" className="sof-actions-trigger" aria-label="Show report actions">
-      <span>Report Actions</span><span className="sof-actions-chevron">âŒƒ</span>
+      <span>Report Actions</span><span className="sof-actions-chevron">⌃</span>
     </button>
   </div>
 }
@@ -91,7 +91,7 @@ function RouteShell({ children, active = 'upload' }) {
   return <div className="min-h-screen w-full overflow-x-hidden bg-[#f7f8fa]">
     <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
       <div className="mx-auto flex h-16 max-w-[1500px] items-center gap-3 px-4 lg:px-6">
-        <button aria-label={open ? 'Close navigation' : 'Open navigation'} aria-expanded={open} className="shrink-0" onClick={() => setOpen(!open)}>â˜°</button>
+        <button aria-label={open ? 'Close navigation' : 'Open navigation'} aria-expanded={open} className="shrink-0" onClick={() => setOpen(!open)}>☰</button>
         <button onClick={() => go('dashboard')} className="min-w-0 text-left"><b className="block truncate text-sm">E-WORKS Income Report</b><div className="truncate text-xs text-slate-500">Finance reporting workspace</div></button>
       </div>
     </header>
