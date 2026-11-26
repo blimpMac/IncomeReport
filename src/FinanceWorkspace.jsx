@@ -207,7 +207,7 @@ function ProjectAnalysis() {
       try {
         const [refResult] = await Promise.all([
           supabase.from('income_reference_projects')
-            .select('sof_base,sof_key,sof_number,project_name,division,construction_classification,contract_value,final_contract_value,materials_budget,labor_budget,overhead_budget,total_cost_budget')
+            .select('sof_base,sof_key,sof_number,project_name,construction_classification,contract_value,final_contract_value,materials_budget,labor_budget,overhead_budget,total_cost_budget')
             .limit(2000),
         ])
         if (refResult.error) throw refResult.error
