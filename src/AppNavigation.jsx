@@ -37,8 +37,21 @@ export default function AppNavigation({ active }) {
   }, [])
 
   return <header className="app-topbar no-print">
-    <div className="app-topbar-inner" ref={rootRef}>
+    <div className="app-topbar-inner" ref={rootRef} onMouseLeave={() => { if (window.matchMedia('(min-width: 768px)').matches) setOpen(false) }}>
       <div className="app-brand-lockup">
+        <button
+          type="button"
+          className={`app-menu-trigger app-menu-trigger-left${open ? ' is-open' : ''}`}
+          aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
+          aria-expanded={open}
+          aria-controls="app-navigation-menu"
+          onMouseEnter={() => { if (window.matchMedia('(min-width: 768px)').matches) setOpen(true) }}
+          onClick={() => setOpen(value => !value)}
+        >
+          <span className="app-menu-glyph" aria-hidden="true"><i /><i /><i /></span>
+          <span className="app-menu-trigger-label">Menu</span>
+          <span className="app-menu-chevron" aria-hidden="true">⌄</span>
+        </button>
         {logoFailed
           ? <span className="app-brand-fallback">GREENLIGHT POWER</span>
           : <img
@@ -51,19 +64,8 @@ export default function AppNavigation({ active }) {
       </div>
       <div className="app-topbar-actions">
         <span className="app-current-section">{NAV.find(item => item.id === active)?.label || 'Finance workspace'}</span>
-        <button
-          type="button"
-          className={`app-menu-trigger${open ? ' is-open' : ''}`}
-          aria-label={open ? 'Close navigation menu' : 'Open navigation menu'}
-          aria-expanded={open}
-          aria-controls="app-navigation-menu"
-          onClick={() => setOpen(value => !value)}
-        >
-          <span className="app-menu-glyph" aria-hidden="true"><i /><i /><i /></span>
-          <span className="app-menu-trigger-label">Menu</span>
-        </button>
       </div>
-      {open && <nav id="app-navigation-menu" className="app-navigation-menu" aria-label="Main navigation">
+      <nav id="app-navigation-menu" className={`app-navigation-menu${open ? ' is-open' : ''}`} aria-label="Main navigation">
         {['Overview', 'Reports', 'Data'].map(group => <div className="app-navigation-group" key={group}>
           <span className="app-navigation-heading">{group}</span>
           {NAV.filter(item => item.group === group).map(item => <a
