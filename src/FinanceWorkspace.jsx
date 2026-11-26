@@ -561,10 +561,11 @@ function BudgetDashboard() {
       }
       const workbook=XLSX.utils.book_new()
       const summary=[
-        ['Budget Monitoring Summary'],['Company',company],['Coverage',`${range.from} to ${range.to}`],
-        ['Allocated Budget',allocated],['Actual Expenses',actual],['Remaining Budget',remaining],
-        ['Budget Utilization (%)',utilization],['Projects Exceeding Budget',overBudget],
-        ['Budgeted Projects',projects.length],['Transactions exported',all.length],
+        ['Budget Monitoring Summary'],['Company',company],['Export coverage',`${range.from} to ${range.to}`],
+        ['All-time Allocated Budget',allocated],['All-time Actual Expenses',actual],['All-time Remaining Budget',remaining],
+        ['All-time Budget Utilization (%)',utilization],['Projects Exceeding Budget (all-time)',overBudget],
+        ['Budgeted Projects',projects.length],['Transactions exported in selected period',all.length],
+        ['Net Expenses in selected export period',all.reduce((sum,row)=>sum+Number(row.debit||0)-Number(row.credit||0),0)],
         [],['Project','SOF','Allocated Budget','Actual Cost','Remaining Budget','Utilization (%)','Status'],
         ...projects.map(p=>[p.project_name,p.project_key,Number(p.allocated_budget||0),Number(p.actual_cost||0),Number(p.allocated_budget||0)-Number(p.actual_cost||0),Number(p.allocated_budget||0)?Number(p.actual_cost||0)/Number(p.allocated_budget||0)*100:0,Number(p.actual_cost||0)>Number(p.allocated_budget||0)?'Over budget':'Within budget'])
       ]
