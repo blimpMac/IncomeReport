@@ -432,22 +432,33 @@ function ProjectAnalysis() {
 
 function TransactionDetails() {
   const [rows, setRows] = useState([])
-  const [count, setCount] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
   const [page, setPage] = useState(0)
   const [search, setSearch] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const pageSize = 50
   useEffect(() => {
     let active = true
-    let query = supabase.from('income_transactions_ready').select('transaction_date,division,project_group,sof_label,sof_base,type,name,memo,account,debit,credit,category', { count: 'exact' }).order('transaction_date', { ascending: false }).range(page * pageSize, page * pageSize + pageSize - 1)
+    setLoading(true)
+    let query = supabase.from('income_transactions_ready')
+      .select('id,transaction_date,division,project_group,sof_label,sof_base,type,name,memo,account,debit,credit,category')
+      .order('transaction_date', { ascending: false })
+      .order('id', { ascending: false })
+      .range(page * pageSize, page * pageSize + pageSize - 1)
     if (search.trim()) query = query.or(`sof_label.ilike.%${search.trim()}%,project_group.ilike.%${search.trim()}%,account.ilike.%${search.trim()}%,memo.ilike.%${search.trim()}%`)
-    query.then(({ data, count: total, error: e }) => { if (!active) return; if (e) setError(e.message); else { setRows(data || []); setCount(total || 0); setError('') } })
+    query.then(({ data, error: e }) => {
+      if (!active) return
+      if (e) setError(e.message)
+      else { setRows(data || []); setHasMore((data || []).length === pageSize); setError('') }
+      setLoading(false)
+    }).catch(e => { if (active) { setError(e?.message || 'Unable to load transactions.'); setLoading(false) } })
     return () => { active = false }
   }, [page, search])
   useEffect(() => setPage(0), [search])
-  return <Shell page="transactions"><div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="text-2xl font-semibold text-slate-950">Transaction Details</h1><p className="mt-1 text-sm text-slate-500">QuickBooks sales and cost transactions.</p></div><label className="text-xs font-semibold text-slate-500">Search transactions<input value={search} onChange={e => setSearch(e.target.value)} placeholder="SOF, project, account…" className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 sm:w-72" /></label></div>
+  return <Shell page="transactions"><div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="text-2xl font-semibold text-slate-950">Transaction Details</h1><p className="mt-1 text-sm text-slate-500">QuickBooks transactions · 50 records per page · no full-table count scan.</p></div><label className="text-xs font-semibold text-slate-500">Search transactions<input value={search} onChange={e => setSearch(e.target.value)} placeholder="SOF, project, account…" className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 sm:w-72" /></label></div>
     {error && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
-    <div className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm"><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead className="bg-[#173b68] text-xs uppercase text-white"><tr>{['Date','Category','Project / SOF','Type','Account','Sales','Cost'].map(x => <th key={x} className="px-3 py-3">{x}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{rows.map((row,index) => <tr key={`${row.transaction_date}-${row.sof_key}-${index}`}><td className="whitespace-nowrap px-3 py-3">{shortDate(row.transaction_date)}</td><td className="px-3 py-3">{categoryName(row.division)}</td><td className="px-3 py-3"><div className="font-medium">{row.project_group || '—'}</div><div className="text-xs text-slate-500">{row.sof_label || 'Unassigned'}</div></td><td className="px-3 py-3">{row.type || '—'}</td><td className="px-3 py-3">{row.account || '—'}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{row.category === 'Revenue' ? money(Number(row.credit || 0) - Number(row.debit || 0)) : '—'}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{txCost(row) ? money(txCost(row)) : '—'}</td></tr>)}</tbody></table>{!rows.length && !error && <div className="p-8 text-center text-sm text-slate-500">No transactions found.</div>}</div><div className="flex items-center justify-between gap-3 border-t border-slate-100 p-3 text-sm text-slate-500"><span>{count ? `${page * pageSize + 1}–${Math.min((page + 1) * pageSize, count)} of ${number(count)}` : '0 records'}</span><div className="flex items-center gap-2"><button disabled={!page} onClick={() => setPage(x => x - 1)} className="rounded-lg border px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={(page + 1) * pageSize >= count} onClick={() => setPage(x => x + 1)} className="rounded-lg border px-3 py-1.5 disabled:opacity-40">Next</button></div></div></div>
+    <div className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm"><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead className="bg-[#173b68] text-xs uppercase text-white"><tr>{['Date','Category','Project / SOF','Type','Account','Sales','Cost'].map(x => <th key={x} className="px-3 py-3">{x}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{rows.map((row,index) => <tr key={row.id || `${row.transaction_date}-${row.sof_key}-${index}`}><td className="whitespace-nowrap px-3 py-3">{shortDate(row.transaction_date)}</td><td className="px-3 py-3">{categoryName(row.division)}</td><td className="px-3 py-3"><div className="font-medium">{row.project_group || '—'}</div><div className="text-xs text-slate-500">{row.sof_label || 'Unassigned'}</div></td><td className="px-3 py-3">{row.type || '—'}</td><td className="px-3 py-3">{row.account || '—'}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{row.category === 'Revenue' ? money(Number(row.credit || 0) - Number(row.debit || 0)) : '—'}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{txCost(row) ? money(txCost(row)) : '—'}</td></tr>)}</tbody></table>{!rows.length && !error && <div className="p-8 text-center text-sm text-slate-500">No transactions found.</div>}</div><div className="flex items-center justify-between gap-3 border-t border-slate-100 p-3 text-sm text-slate-500"><span>{rows.length ? `Page ${page + 1} · ${number(rows.length)} records loaded` : '0 records'}{loading ? ' · Loading…' : ''}</span><div className="flex items-center gap-2"><button disabled={!page || loading} onClick={() => setPage(x => x - 1)} className="rounded-lg border px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={!hasMore || loading} onClick={() => setPage(x => x + 1)} className="rounded-lg border px-3 py-1.5 disabled:opacity-40">Next</button></div></div></div>
   </Shell>
 }
 
