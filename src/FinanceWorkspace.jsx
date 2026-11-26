@@ -617,6 +617,13 @@ function BudgetDashboard() {
 }
 
 function TransactionDetails() {
+  const { months: availableMonths } = useMonths()
+  const exportYears = useMemo(() => [...new Set(availableMonths.map(value => value.slice(0,4)))].sort(), [availableMonths])
+  const [exportType, setExportType] = useState('year')
+  const [exportYear, setExportYear] = useState('')
+  const [exportMonth, setExportMonth] = useState('')
+  const [exportStartDate, setExportStartDate] = useState('')
+  const [exportEndDate, setExportEndDate] = useState('')
   const [rows, setRows] = useState([])
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
@@ -630,6 +637,7 @@ function TransactionDetails() {
   const [exporting, setExporting] = useState(false)
   const pageSize = 50
   const cursor = cursorStack[cursorStack.length - 1] || null
+  useEffect(() => { if (exportYears.length && !exportYears.includes(exportYear)) setExportYear(exportYears.at(-1)); if (availableMonths.length && !availableMonths.includes(exportMonth)) setExportMonth(availableMonths[0]); }, [exportYears, availableMonths, exportYear, exportMonth])
 
   useEffect(() => {
     let active = true
@@ -674,6 +682,12 @@ function TransactionDetails() {
 
   const exportCsv = async () => {
     if (exporting) return
+    let exportFrom = ''; let exportTo = ''
+    if (exportType === 'year' && exportYear) { exportFrom = `${exportYear}-01-01`; exportTo = `${exportYear}-12-31` }
+    else if (exportType === 'month' && exportMonth) { const [y,m] = exportMonth.split('-').map(Number); exportFrom = `${exportMonth}-01`; exportTo = new Date(Date.UTC(y,m,0)).toISOString().slice(0,10) }
+    else if (exportType === 'range') { exportFrom = exportStartDate; exportTo = exportEndDate }
+    if (!exportFrom || !exportTo) { setError('Choose a complete export coverage period.'); return }
+    if (exportFrom > exportTo) { setError('Export start date must be on or before the end date.'); return }
     setExporting(true)
     setError('')
     try {
@@ -687,8 +701,7 @@ function TransactionDetails() {
           .order('id', { ascending: false })
           .range(offset, offset + batchSize - 1)
         if (division !== 'all') query = query.eq('division', division)
-        if (startDate) query = query.gte('transaction_date', startDate)
-        if (endDate) query = query.lte('transaction_date', endDate)
+        query = query.gte('transaction_date', exportFrom).lte('transaction_date', exportTo)
         if (category !== 'all') query = query.eq('category', category)
         const { data, error: queryError } = await query
         if (queryError) throw queryError
@@ -712,7 +725,7 @@ function TransactionDetails() {
       const companySlug = company === 'Greenlight Power Inc.' ? 'greenlight' : 'gemcor'
       const divisionSlug = division === 'all' ? 'all-divisions' : division.toLowerCase()
       anchor.href = url
-      anchor.download = `e-works-${companySlug}-${divisionSlug}-transactions-${new Date().toISOString().slice(0,10)}.csv`
+      anchor.download = `e-works-${companySlug}-${divisionSlug}-transactions-${exportFrom}-to-${exportTo}.csv`
       document.body.appendChild(anchor)
       anchor.click()
       anchor.remove()
@@ -739,6 +752,7 @@ function TransactionDetails() {
         <div className="flex items-end"><button type="button" onClick={() => {setStartDate('');setEndDate('');setCompany('Greenlight Power Inc.');setDivision('all');setCategory('all');setCursorStack([])}} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Clear filters</button></div>
       </div>
     </div>
+    <div className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5"><label className="text-xs font-semibold text-slate-600">Export coverage<select value={exportType} onChange={e=>setExportType(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="year">Per Year</option><option value="month">Per Month</option><option value="range">Customized Date Range</option></select></label>{exportType==='year'&&<label className="text-xs font-semibold text-slate-600">Year<select value={exportYear} onChange={e=>setExportYear(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">{exportYears.map(y=><option key={y} value={y}>{y}</option>)}</select></label>}{exportType==='month'&&<label className="text-xs font-semibold text-slate-600">Month<input type="month" value={exportMonth} onChange={e=>setExportMonth(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"/></label>}{exportType==='range'&&<><label className="text-xs font-semibold text-slate-600">Start date<input type="date" value={exportStartDate} onChange={e=>setExportStartDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"/></label><label className="text-xs font-semibold text-slate-600">End date<input type="date" min={exportStartDate||undefined} value={exportEndDate} onChange={e=>setExportEndDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"/></label>}</div>
     {error && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
     <div className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm">
       <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-sm font-semibold text-slate-900">QuickBooks transaction ledger · {company}</h2><p className="mt-1 text-xs text-slate-500">Actual transaction dates · newest first · 50-row keyset pagination · category retained</p></div><div className="flex items-center gap-2"><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{rows.length} records on this page</span><button type="button" onClick={exportCsv} disabled={exporting || loading} className="rounded-lg bg-[#173b68] px-3 py-2 text-xs font-semibold text-white hover:bg-[#102d50] disabled:cursor-not-allowed disabled:opacity-50">{exporting ? 'Preparing CSV…' : 'Export CSV'}</button></div></div>
