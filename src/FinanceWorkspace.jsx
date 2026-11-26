@@ -762,7 +762,35 @@ function TransactionDetails() {
         <div className="flex items-end"><button type="button" onClick={() => {setStartDate('');setEndDate('');setCompany('Greenlight Power Inc.');setDivision('all');setCategory('all');setCursorStack([])}} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Clear filters</button></div>
       </div>
     </div>
-    <div className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5"><label className="text-xs font-semibold text-slate-600">Export coverage<select value={exportType} onChange={e=>setExportType(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="year">Per Year</option><option value="month">Per Month</option><option value="range">Customized Date Range</option></select></label>{exportType==='year'&&<label className="text-xs font-semibold text-slate-600">Year<select value={exportYear} onChange={e=>setExportYear(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">{exportYears.map(y=><option key={y} value={y}>{y}</option>)}</select></label>}{exportType==='month'&&<label className="text-xs font-semibold text-slate-600">Month<input type="month" value={exportMonth} onChange={e=>setExportMonth(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"/></label>}{exportType==='range'&&<><label className="text-xs font-semibold text-slate-600">Start date<input type="date" value={exportStartDate} onChange={e=>setExportStartDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"/></label><label className="text-xs font-semibold text-slate-600">End date<input type="date" min={exportStartDate||undefined} value={exportEndDate} onChange={e=>setExportEndDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"/></label></>}</div>
+    <div className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5">
+      <label className="text-xs font-semibold text-slate-600">Export coverage
+        <select value={exportType} onChange={e => setExportType(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+          <option value="year">Per Year</option><option value="month">Per Month</option><option value="range">Customized Date Range</option>
+        </select>
+      </label>
+      {exportType === 'year' ? (
+        <label className="text-xs font-semibold text-slate-600">Year
+          <select value={exportYear} onChange={e => setExportYear(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            {exportYears.map(year => <option key={year} value={year}>{year}</option>)}
+          </select>
+        </label>
+      ) : null}
+      {exportType === 'month' ? (
+        <label className="text-xs font-semibold text-slate-600">Month
+          <input type="month" value={exportMonth} onChange={e => setExportMonth(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+        </label>
+      ) : null}
+      {exportType === 'range' ? (
+        <>
+          <label className="text-xs font-semibold text-slate-600">Start date
+            <input type="date" value={exportStartDate} onChange={e => setExportStartDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </label>
+          <label className="text-xs font-semibold text-slate-600">End date
+            <input type="date" min={exportStartDate || undefined} value={exportEndDate} onChange={e => setExportEndDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </label>
+        </>
+      ) : null}
+    </div>
     {error && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
     {exportSuccess && <div role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{exportSuccess}</div>}
     <div className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm">
