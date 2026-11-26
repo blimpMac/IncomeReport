@@ -191,7 +191,10 @@ left join lateral (
     count(*) filter(where t.category<>'Revenue')::bigint transaction_count
   from public.income_all_transactions t
   where t.company=p_company
-    and (t.sof_key=r.pkey or (r.sof_number=r.sof_base and t.sof_base=r.sof_base))
+    and (t.sof_key=r.pkey or (r.sof_number=r.sof_base and t.sof_base=r.sof_base and not exists (
+      select 1 from public.income_reference_projects sub
+      where sub.sof_base=r.sof_base and sub.sof_number<>sub.sof_base and sub.sof_key=t.sof_key
+    )))
 ) a on true
 order by r.project_name nulls last,r.pkey;
 $$;
