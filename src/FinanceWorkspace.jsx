@@ -304,8 +304,16 @@ function ProjectAnalysis() {
   const [coverage, setCoverage] = useState('all')
   const [selectedMonth, setSelectedMonth] = useState(() => dateInputValue().slice(0, 7))
   const [projects, setProjects] = useState([])
+  const [compareA, setCompareA] = useState('')
+  const [compareB, setCompareB] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const comparisonProjects = useMemo(() => [projects.find(project => project.key === compareA), projects.find(project => project.key === compareB)], [projects, compareA, compareB])
+  useEffect(() => {
+    if (!projects.length) return
+    if (!projects.some(project => project.key === compareA)) setCompareA(projects[0].key)
+    if (!projects.some(project => project.key === compareB)) setCompareB(projects.find(project => project.key !== compareA)?.key || projects[0].key)
+  }, [projects, compareA, compareB])
   const startDate = useMemo(() => coverage === 'month' ? `${selectedMonth}-01` : null, [coverage, selectedMonth])
   const endDate = useMemo(() => {
     if (coverage !== 'month' || !selectedMonth) return null
@@ -419,6 +427,13 @@ function ProjectAnalysis() {
       <Metric label="Income" value={money(totals.revenue)} note={rangeLabel} tone="green" />
       <Metric label="Net income" value={money(totals.revenue - totals.actual)} note="Income less actual project cost" tone={totals.revenue - totals.actual < 0 ? 'red' : 'green'} />
     </div>
+    {!loading && projects.length > 0 && <Card title="Project-to-project comparison" note={`Compare revenue, actual cost, budget usage and profitability · ${rangeLabel}`}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="text-xs font-semibold text-slate-600">Project A<select value={compareA} onChange={event => setCompareA(event.target.value)} className="mt-1 block w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm">{projects.map(project => <option key={project.key} value={project.key}>{project.label} · {project.key}</option>)}</select></label>
+        <label className="text-xs font-semibold text-slate-600">Project B<select value={compareB} onChange={event => setCompareB(event.target.value)} className="mt-1 block w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm">{projects.map(project => <option key={project.key} value={project.key}>{project.label} · {project.key}</option>)}</select></label>
+      </div>
+      {comparisonProjects[0] && comparisonProjects[1] && <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[560px] text-sm"><thead><tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500"><th className="px-3 py-2">Measure</th><th className="px-3 py-2 text-right">{comparisonProjects[0].label}</th><th className="px-3 py-2 text-right">{comparisonProjects[1].label}</th><th className="px-3 py-2 text-right">Difference (A − B)</th></tr></thead><tbody className="divide-y divide-slate-100">{[{label:'Revenue',key:'revenue'},{label:'Actual project cost',key:'actual'},{label:'Allocated budget',key:'budget'},{label:'Budget remaining',key:'variance'},{label:'Gross profit',key:'grossProfit'}].map(metric => {const a=Number(comparisonProjects[0][metric.key]||0);const b=Number(comparisonProjects[1][metric.key]||0);return <tr key={metric.key}><td className="px-3 py-2 font-medium text-slate-700">{metric.label}</td><td className="px-3 py-2 text-right tabular-nums">{money(a)}</td><td className="px-3 py-2 text-right tabular-nums">{money(b)}</td><td className={`px-3 py-2 text-right font-semibold tabular-nums ${a-b<0?'text-rose-700':'text-emerald-700'}`}>{money(a-b)}</td></tr>})}<tr><td className="px-3 py-2 font-medium text-slate-700">Profit margin</td><td className="px-3 py-2 text-right tabular-nums">{comparisonProjects[0].margin == null ? '—' : `${comparisonProjects[0].margin.toFixed(1)}%`}</td><td className="px-3 py-2 text-right tabular-nums">{comparisonProjects[1].margin == null ? '—' : `${comparisonProjects[1].margin.toFixed(1)}%`}</td><td className="px-3 py-2 text-right tabular-nums">{comparisonProjects[0].margin == null || comparisonProjects[1].margin == null ? '—' : `${(comparisonProjects[0].margin-comparisonProjects[1].margin).toFixed(1)} pp`}</td></tr></tbody></table></div>}
+    </Card>}
     {loading ? <div className="rounded-xl border border-emerald-100 bg-white p-8 text-center text-sm text-slate-500">Loading project activity…</div> : <div className="space-y-4">
       {projects.length > 0 && <Card title="Budget utilization" note={`Actual costs against mapped project budgets · ${rangeLabel}`}>
         <ProjectBars budget={totals.budget} actual={totals.actual} />
@@ -663,6 +678,11 @@ function TransactionDetails() {
   const [endDate, setEndDate] = useState('')
   const [division, setDivision] = useState('all')
   const [category, setCategory] = useState('all')
+  const [searchTerm, setSearchTerm] = useState('')
+  const [appliedSearch, setAppliedSearch] = useState('')
+  const [savedViews, setSavedViews] = useState([])
+  const [viewName, setViewName] = useState('')
+  const [expandedTransactionId, setExpandedTransactionId] = useState(null)
   const [cursorStack, setCursorStack] = useState([])
   const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState('')
@@ -672,6 +692,36 @@ function TransactionDetails() {
   const pageSize = 50
   const cursor = cursorStack[cursorStack.length - 1] || null
   useEffect(() => { if (exportYears.length && !exportYears.includes(exportYear)) setExportYear(exportYears.at(-1)); if (availableMonths.length && !availableMonths.includes(exportMonth)) setExportMonth(availableMonths[0]); }, [exportYears, availableMonths, exportYear, exportMonth])
+
+  useEffect(() => {
+    try { setSavedViews(JSON.parse(window.localStorage.getItem(`eworks.transactionViews.${company}`) || '[]')) }
+    catch { setSavedViews([]) }
+  }, [company])
+
+  const saveCurrentView = () => {
+    const name = viewName.trim()
+    if (!name) return
+    const view = { id: Date.now(), name, division, category, startDate, endDate, appliedSearch }
+    setSavedViews(current => {
+      const next = [...current.filter(item => item.name.toLowerCase() !== name.toLowerCase()), view]
+      try { window.localStorage.setItem(`eworks.transactionViews.${company}`, JSON.stringify(next)) } catch { /* Storage may be unavailable in private browsing. */ }
+      return next
+    })
+    setViewName('')
+  }
+  const applySavedView = view => {
+    setDivision(view.division || 'all')
+    setCategory(view.category || 'all')
+    setStartDate(view.startDate || '')
+    setEndDate(view.endDate || '')
+    setSearchTerm(view.appliedSearch || '')
+    setAppliedSearch(view.appliedSearch || '')
+    setCursorStack([])
+  }
+  const resetTransactionFilters = () => {
+    setDivision('all'); setCategory('all'); setStartDate(''); setEndDate('')
+    setSearchTerm(''); setAppliedSearch(''); setCursorStack([])
+  }
 
   useEffect(() => {
     let active = true
@@ -689,7 +739,11 @@ function TransactionDetails() {
         if (startDate) query = query.gte('transaction_date', startDate)
         if (endDate) query = query.lte('transaction_date', endDate)
         if (category !== 'all') query = query.eq('category', category)
-        if (cursor) query = query.or(`transaction_date.lt.${cursor.date},and(transaction_date.eq.${cursor.date},id.lt.${cursor.id})`)
+        const searchValue = appliedSearch.trim().replace(/[,%()]/g, ' ').replace(/\s+/g, ' ')
+        const orFilters = []
+        if (searchValue) orFilters.push(`or(name.ilike.%${searchValue}%,memo.ilike.%${searchValue}%,account.ilike.%${searchValue}%,sof_base.ilike.%${searchValue}%,sof_label.ilike.%${searchValue}%,type.ilike.%${searchValue}%)`)
+        if (cursor) orFilters.push(`or(transaction_date.lt.${cursor.date},and(transaction_date.eq.${cursor.date},id.lt.${cursor.id}))`)
+        if (orFilters.length) query = query.or(orFilters.length === 1 ? orFilters[0] : `and(${orFilters.join(',')})`)
         const { data, error: queryError } = await query
         if (queryError) throw queryError
         if (!active) return
@@ -704,7 +758,7 @@ function TransactionDetails() {
     }
     load()
     return () => { active = false }
-  }, [startDate, endDate, company, division, category, cursor?.date, cursor?.id])
+  }, [startDate, endDate, company, division, category, appliedSearch, cursor?.date, cursor?.id])
 
   const resetFilters = () => setCursorStack([])
   const nextPage = () => {
@@ -737,6 +791,8 @@ function TransactionDetails() {
         if (division !== 'all') query = query.eq('division', division)
         query = query.gte('transaction_date', exportFrom).lte('transaction_date', exportTo)
         if (category !== 'all') query = query.eq('category', category)
+        const searchValue = appliedSearch.trim().replace(/[,%()]/g, ' ').replace(/\s+/g, ' ')
+        if (searchValue) query = query.or([`name.ilike.%${searchValue}%`, `memo.ilike.%${searchValue}%`, `account.ilike.%${searchValue}%`, `sof_base.ilike.%${searchValue}%`, `sof_label.ilike.%${searchValue}%`, `type.ilike.%${searchValue}%`].join(','))
         const { data, error: queryError } = await query
         if (queryError) throw queryError
         const batch = data || []
@@ -816,11 +872,25 @@ function TransactionDetails() {
         </>
       ) : null}
     </div>
+    <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(220px,1.5fr)_minmax(160px,1fr)_minmax(160px,1fr)_auto]">
+        <label className="min-w-0 text-xs font-semibold text-slate-600">Search all transactions<input value={searchTerm} onChange={event => setSearchTerm(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') { setAppliedSearch(searchTerm.trim()); setCursorStack([]) } }} placeholder="Client, SOF, memo, account or type" className="mt-1 block w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal" /></label>
+        <label className="text-xs font-semibold text-slate-600">Division<select value={division} onChange={event => { setDivision(event.target.value); setCursorStack([]) }} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="all">All divisions</option><option value="All Transactions">All Transactions</option><option value="EWORKS">Eworks</option><option value="SUPPLY">Supply</option><option value="CIVILWORKS">Civilworks</option></select></label>
+        <label className="text-xs font-semibold text-slate-600">Category<select value={category} onChange={event => { setCategory(event.target.value); setCursorStack([]) }} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="all">All categories</option><option value="Materials">Materials</option><option value="Labor">Labor</option><option value="Overhead">Overhead</option><option value="Other">Other</option><option value="Revenue">Revenue</option></select></label>
+        <div className="flex items-end gap-2"><button type="button" onClick={() => { setAppliedSearch(searchTerm.trim()); setCursorStack([]) }} className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Search</button><button type="button" onClick={resetTransactionFilters} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700">Reset</button></div>
+      </div>
+      <div className="mt-3 flex min-w-0 flex-col gap-2 border-t border-slate-100 pt-3 sm:flex-row sm:items-end">
+        <label className="min-w-0 flex-1 text-xs font-semibold text-slate-600">Save current filters<input value={viewName} onChange={event => setViewName(event.target.value)} onKeyDown={event => { if (event.key === 'Enter') saveCurrentView() }} placeholder="e.g. Eworks monthly expenses" maxLength={50} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal" /></label>
+        <button type="button" onClick={saveCurrentView} disabled={!viewName.trim()} className="rounded-lg border border-emerald-700 px-3 py-2 text-sm font-semibold text-emerald-800 disabled:cursor-not-allowed disabled:opacity-40">Save view</button>
+        {savedViews.length > 0 && <label className="min-w-0 flex-1 text-xs font-semibold text-slate-600">Saved views<select defaultValue="" onChange={event => { const view = savedViews.find(item => String(item.id) === event.target.value); if (view) applySavedView(view); event.target.value = '' }} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="">Choose a saved view…</option>{savedViews.map(view => <option key={view.id} value={view.id}>{view.name}</option>)}</select></label>}
+      </div>
+      {appliedSearch && <p className="mt-2 text-xs text-slate-500">Search results for <b className="text-slate-700">{appliedSearch}</b> · company-scoped records only.</p>}
+    </div>
     {error && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
     {exportSuccess && <div role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{exportSuccess}</div>}
     <div className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm">
       <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-sm font-semibold text-slate-900">QuickBooks transaction ledger · {company}</h2><p className="mt-1 text-xs text-slate-500">Actual transaction dates · newest first · 50-row keyset pagination · category retained</p></div><div className="flex items-center gap-2"><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{rows.length} records on this page</span><button type="button" onClick={exportCsv} disabled={exporting || loading} className="rounded-lg bg-[#173b68] px-3 py-2 text-xs font-semibold text-white hover:bg-[#102d50] disabled:cursor-not-allowed disabled:opacity-50">{exporting ? 'Preparing CSV…' : 'Export CSV'}</button></div></div>
-      <div className="overflow-x-auto"><table className="w-full min-w-[1250px] text-left text-sm"><thead className="bg-[#173b68] text-xs uppercase text-white"><tr>{['TYPE','DATE','CLIENT','SOF #','MEMO OR DESCRIPTION','ACCOUNT','DEBIT','CREDIT','RUNNING BALANCE'].map(x => <th key={x} className="whitespace-nowrap px-3 py-3">{x}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{rows.map(row => <tr key={row.id}><td className="whitespace-nowrap px-3 py-3">{row.type || '—'}</td><td className="whitespace-nowrap px-3 py-3">{shortDate(row.transaction_date)}</td><td className="max-w-[220px] truncate px-3 py-3" title={row.name}>{row.name || '—'}</td><td className="whitespace-nowrap px-3 py-3">{row.sof_base || row.sof_label || '—'}</td><td className="min-w-[320px] max-w-[520px] whitespace-normal break-words px-3 py-3 align-top"><div className="text-slate-700" title={row.memo}>{row.memo || '—'}</div></td><td className="max-w-[220px] truncate px-3 py-3" title={row.account}>{row.account || '—'}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.debit)}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.credit)}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.balance)}</td></tr>)}</tbody></table>{!rows.length && !loading && !error && <div className="p-8 text-center text-sm text-slate-500">No transactions found for these filters. Check whether a QuickBooks upload exists for the selected company.</div>}{loading && <div className="p-5 text-center text-sm text-slate-500">Loading transactions…</div>}</div>
+      <div className="overflow-x-auto"><table className="w-full min-w-[1250px] text-left text-sm"><thead className="bg-[#173b68] text-xs uppercase text-white"><tr><th className="whitespace-nowrap px-3 py-3">Details</th>{['TYPE','DATE','CLIENT','SOF #','MEMO OR DESCRIPTION','ACCOUNT','DEBIT','CREDIT','RUNNING BALANCE'].map(x => <th key={x} className="whitespace-nowrap px-3 py-3">{x}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{rows.map(row => <React.Fragment key={row.id}><tr className={expandedTransactionId === row.id ? 'bg-emerald-50/60' : ''}><td className="px-3 py-3"><button type="button" aria-expanded={expandedTransactionId === row.id} onClick={() => setExpandedTransactionId(current => current === row.id ? null : row.id)} className="rounded-md border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:border-emerald-600 hover:text-emerald-800">{expandedTransactionId === row.id ? 'Hide' : 'View'}</button></td><td className="whitespace-nowrap px-3 py-3">{row.type || '—'}</td><td className="whitespace-nowrap px-3 py-3">{shortDate(row.transaction_date)}</td><td className="max-w-[220px] truncate px-3 py-3" title={row.name}>{row.name || '—'}</td><td className="whitespace-nowrap px-3 py-3">{row.sof_base || row.sof_label || '—'}</td><td className="min-w-[320px] max-w-[520px] whitespace-normal break-words px-3 py-3 align-top"><div className="text-slate-700" title={row.memo}>{row.memo || '—'}</div></td><td className="max-w-[220px] truncate px-3 py-3" title={row.account}>{row.account || '—'}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.debit)}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.credit)}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.balance)}</td></tr>{expandedTransactionId === row.id && <tr className="bg-emerald-50/40"><td colSpan={10} className="px-4 py-4"><div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-4"><div><span className="block text-[11px] font-semibold uppercase text-slate-500">Company</span><b className="break-words text-sm text-slate-800">{row.company || company}</b></div><div><span className="block text-[11px] font-semibold uppercase text-slate-500">Division</span><b className="break-words text-sm text-slate-800">{row.division || '—'}</b></div><div><span className="block text-[11px] font-semibold uppercase text-slate-500">Category</span><b className="break-words text-sm text-slate-800">{row.category || '—'}</b></div><div><span className="block text-[11px] font-semibold uppercase text-slate-500">Transaction ID</span><b className="break-all text-sm text-slate-800">{row.id}</b></div><div className="sm:col-span-2 lg:col-span-4"><span className="block text-[11px] font-semibold uppercase text-slate-500">Full memo / description</span><p className="mt-1 whitespace-pre-wrap break-words text-sm text-slate-700">{row.memo || 'No memo recorded.'}</p></div></div></td></tr>}</React.Fragment>)}</tbody></table>{!rows.length && !loading && !error && <div className="p-8 text-center text-sm text-slate-500">No transactions found for these filters. Check whether a QuickBooks upload exists for the selected company.</div>}{loading && <div className="p-5 text-center text-sm text-slate-500">Loading transactions…</div>}</div>
       <div className="flex items-center justify-between gap-3 border-t border-slate-100 p-3 text-sm text-slate-500"><span>Page {cursorStack.length + 1} · {rows.length} records shown</span><div className="flex items-center gap-2"><button disabled={!cursorStack.length || loading} onClick={previousPage} className="rounded-lg border px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={!hasMore || loading} onClick={nextPage} className="rounded-lg border px-3 py-1.5 disabled:opacity-40">Next 50</button></div></div>
     </div>
   </Shell>
