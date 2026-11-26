@@ -51,25 +51,30 @@ function useMonths() {
   const [error, setError] = useState('')
   useEffect(() => {
     let active = true
-    // This screen only needs the available month keys. The all-period dashboard
-    // RPC also builds every SOF/account aggregate, which can exceed the DB
-    // statement timeout on a large transaction history.
+    // Reporting periods come from upload metadata, not a full scan of the
+    // transaction view. This avoids loading thousands of transaction rows
+    // just to populate the Year/Month selectors.
     const loadMonths = async () => {
-      const dates = []
-      const pageSize = 1000
       try {
-        for (let offset = 0; ; offset += pageSize) {
-          const { data, error: queryError } = await supabase.from('income_transactions_ready')
-            .select('transaction_date')
-            .not('transaction_date', 'is', null)
-            .order('transaction_date', { ascending: false })
-            .range(offset, offset + pageSize - 1)
-          if (!active) return
-          if (queryError) { setError(queryError.message); return }
-          dates.push(...(data || []).map(row => row.transaction_date))
-          if (!data || data.length < pageSize) break
+        const { data, error: queryError } = await supabase.from('income_qb_uploads')
+          .select('detected_min_date,detected_max_date,status')
+          .eq('status', 'ready')
+          .limit(200)
+        if (!active) return
+        if (queryError) { setError(queryError.message); return }
+        const available = new Set()
+        for (const upload of data || []) {
+          const start = upload.detected_min_date?.slice(0, 7)
+          const end = upload.detected_max_date?.slice(0, 7)
+          if (!start || !end) continue
+          let cursor = new Date(`${start}-01T00:00:00`)
+          const last = new Date(`${end}-01T00:00:00`)
+          while (cursor <= last) {
+            available.add(`${cursor.getFullYear()}-${String(cursor.getMonth() + 1).padStart(2, '0')}`)
+            cursor.setMonth(cursor.getMonth() + 1)
+          }
         }
-        setMonths([...new Set(dates.map(date => date?.slice(0, 7)).filter(Boolean))])
+        setMonths([...available].sort().reverse())
         setError('')
       } catch (queryError) {
         if (active) setError(queryError?.message || 'Unable to load reporting periods.')
@@ -101,14 +106,27 @@ function MainDashboard() {
     let active = true
     if (!selectedMonths.length) { setReports([]); setLoading(false); return }
     setLoading(true)
-    Promise.all(selectedMonths.map(month => supabase.rpc('income_monthly_report', { p_month: `${month}-01` })))
-      .then(results => {
+    const loadReports = async () => {
+      try {
+        const nextReports = []
+        // Run one month at a time to avoid concurrent aggregate queries
+        // competing for the same database statement-timeout budget.
+        for (const reportMonth of selectedMonths) {
+          const { data, error: reportError } = await supabase.rpc('income_monthly_report', { p_month: `${reportMonth}-01` })
+          if (!active) return
+          if (reportError) throw reportError
+          nextReports.push({ month: reportMonth, ...(data || {}) })
+        }
         if (!active) return
-        const failed = results.find(result => result.error)
-        if (failed) setError(failed.error.message)
-        else { setError(''); setReports(results.map((result, i) => ({ month: selectedMonths[i], ...(result.data || {}) }))) }
-        setLoading(false)
-      })
+        setReports(nextReports)
+        setError('')
+      } catch (reportError) {
+        if (active) setError(reportError?.message || 'Unable to load monthly financial totals.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    loadReports()
     return () => { active = false }
   }, [selectedMonths])
   useEffect(() => {
