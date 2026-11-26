@@ -432,33 +432,74 @@ function ProjectAnalysis() {
 
 function TransactionDetails() {
   const [rows, setRows] = useState([])
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [category, setCategory] = useState('all')
+  const [cursorStack, setCursorStack] = useState([])
   const [hasMore, setHasMore] = useState(false)
-  const [page, setPage] = useState(0)
-  const [search, setSearch] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const pageSize = 50
+  const cursor = cursorStack[cursorStack.length - 1] || null
+
   useEffect(() => {
     let active = true
     setLoading(true)
-    let query = supabase.from('income_transactions_ready')
-      .select('id,transaction_date,division,project_group,sof_label,sof_base,type,name,memo,account,debit,credit,category')
-      .order('transaction_date', { ascending: false })
-      .order('id', { ascending: false })
-      .range(page * pageSize, page * pageSize + pageSize - 1)
-    if (search.trim()) query = query.or(`sof_label.ilike.%${search.trim()}%,project_group.ilike.%${search.trim()}%,account.ilike.%${search.trim()}%,memo.ilike.%${search.trim()}%`)
-    query.then(({ data, error: e }) => {
-      if (!active) return
-      if (e) setError(e.message)
-      else { setRows(data || []); setHasMore((data || []).length === pageSize); setError('') }
-      setLoading(false)
-    }).catch(e => { if (active) { setError(e?.message || 'Unable to load transactions.'); setLoading(false) } })
+    setError('')
+    const load = async () => {
+      try {
+        let query = supabase.from('income_all_transactions')
+          .select('id,transaction_date,division,project_group,sof_label,sof_base,type,name,memo,account,debit,credit,category')
+          .order('transaction_date', { ascending: false })
+          .order('id', { ascending: false })
+          .limit(pageSize + 1)
+        if (startDate) query = query.gte('transaction_date', startDate)
+        if (endDate) query = query.lte('transaction_date', endDate)
+        if (category !== 'all') query = query.eq('category', category)
+        if (cursor) query = query.or(`transaction_date.lt.${cursor.date},and(transaction_date.eq.${cursor.date},id.lt.${cursor.id})`)
+        const { data, error: queryError } = await query
+        if (queryError) throw queryError
+        if (!active) return
+        const result = data || []
+        setHasMore(result.length > pageSize)
+        setRows(result.slice(0, pageSize))
+      } catch (loadError) {
+        if (active) { setError(loadError?.message || 'Unable to load transactions.'); setRows([]); setHasMore(false) }
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+    load()
     return () => { active = false }
-  }, [page, search])
-  useEffect(() => setPage(0), [search])
-  return <Shell page="transactions"><div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="text-2xl font-semibold text-slate-950">Transaction Details</h1><p className="mt-1 text-sm text-slate-500">QuickBooks transactions · 50 records per page · no full-table count scan.</p></div><label className="text-xs font-semibold text-slate-500">Search transactions<input value={search} onChange={e => setSearch(e.target.value)} placeholder="SOF, project, account…" className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 sm:w-72" /></label></div>
+  }, [startDate, endDate, category, cursor?.date, cursor?.id])
+
+  const resetFilters = () => setCursorStack([])
+  const nextPage = () => {
+    if (!rows.length || !hasMore) return
+    const last = rows[rows.length - 1]
+    setCursorStack(current => [...current, { date: last.transaction_date, id: last.id }])
+  }
+  const previousPage = () => setCursorStack(current => current.slice(0, -1))
+
+  return <Shell page="transactions">
+    <div className="mb-6 flex flex-col gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div><p className="monitor-eyebrow">FINANCIAL OPERATIONS</p><h1 className="text-2xl font-semibold text-slate-950">All Transactions</h1><p className="mt-1 text-sm text-slate-500">Browse the latest QuickBooks upload. Loads 50 records at a time without counting or scanning the full transaction history.</p></div>
+        <a href="#/dashboard" className="text-sm font-semibold text-emerald-700 hover:text-emerald-900">← Back to Financial Monitor</a>
+      </div>
+      <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
+        <label className="text-xs font-semibold text-slate-600">From date<input type="date" value={startDate} onChange={e => {setStartDate(e.target.value);resetFilters()}} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800" /></label>
+        <label className="text-xs font-semibold text-slate-600">To date<input type="date" value={endDate} min={startDate || undefined} onChange={e => {setEndDate(e.target.value);resetFilters()}} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800" /></label>
+        <label className="text-xs font-semibold text-slate-600">Transaction category<select value={category} onChange={e => {setCategory(e.target.value);resetFilters()}} className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-800"><option value="all">All categories</option><option value="Revenue">Revenue</option><option value="Materials">Materials</option><option value="Labor">Labor</option><option value="Overhead">Overhead</option><option value="Other">Other</option></select></label>
+        <div className="flex items-end"><button type="button" onClick={() => {setStartDate('');setEndDate('');setCategory('all');setCursorStack([])}} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Clear filters</button></div>
+      </div>
+    </div>
     {error && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
-    <div className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm"><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead className="bg-[#173b68] text-xs uppercase text-white"><tr>{['Date','Category','Project / SOF','Type','Account','Sales','Cost'].map(x => <th key={x} className="px-3 py-3">{x}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{rows.map((row,index) => <tr key={row.id || `${row.transaction_date}-${row.sof_key}-${index}`}><td className="whitespace-nowrap px-3 py-3">{shortDate(row.transaction_date)}</td><td className="px-3 py-3">{categoryName(row.division)}</td><td className="px-3 py-3"><div className="font-medium">{row.project_group || '—'}</div><div className="text-xs text-slate-500">{row.sof_label || 'Unassigned'}</div></td><td className="px-3 py-3">{row.type || '—'}</td><td className="px-3 py-3">{row.account || '—'}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{row.category === 'Revenue' ? money(Number(row.credit || 0) - Number(row.debit || 0)) : '—'}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{txCost(row) ? money(txCost(row)) : '—'}</td></tr>)}</tbody></table>{!rows.length && !error && <div className="p-8 text-center text-sm text-slate-500">No transactions found.</div>}</div><div className="flex items-center justify-between gap-3 border-t border-slate-100 p-3 text-sm text-slate-500"><span>{rows.length ? `Page ${page + 1} · ${number(rows.length)} records loaded` : '0 records'}{loading ? ' · Loading…' : ''}</span><div className="flex items-center gap-2"><button disabled={!page || loading} onClick={() => setPage(x => x - 1)} className="rounded-lg border px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={!hasMore || loading} onClick={() => setPage(x => x + 1)} className="rounded-lg border px-3 py-1.5 disabled:opacity-40">Next</button></div></div></div>
+    <div className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3"><div><h2 className="text-sm font-semibold text-slate-900">QuickBooks transaction ledger</h2><p className="mt-1 text-xs text-slate-500">Actual transaction dates · newest first · 50-row keyset pagination</p></div><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{rows.length} records on this page</span></div>
+      <div className="overflow-x-auto"><table className="w-full min-w-[1050px] text-left text-sm"><thead className="bg-[#173b68] text-xs uppercase text-white"><tr>{['Date','Project / SOF','Customer / Payee','Type','Category','Account','Debit','Credit'].map(x => <th key={x} className="whitespace-nowrap px-3 py-3">{x}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{rows.map((row,index) => <tr key={row.id || index}><td className="whitespace-nowrap px-3 py-3">{shortDate(row.transaction_date)}</td><td className="px-3 py-3"><div className="font-medium">{row.project_group || '—'}</div><div className="text-xs text-slate-500">{row.sof_label || row.sof_base || 'Unassigned'}</div></td><td className="max-w-[220px] px-3 py-3"><div className="truncate" title={row.name || row.memo}>{row.name || row.memo || '—'}</div></td><td className="px-3 py-3">{row.type || '—'}</td><td className="px-3 py-3">{row.category || categoryName(row.division)}</td><td className="max-w-[220px] truncate px-3 py-3" title={row.account}>{row.account || '—'}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.debit)}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.credit)}</td></tr>)}</tbody></table>{!rows.length && !loading && !error && <div className="p-8 text-center text-sm text-slate-500">No transactions found for these filters.</div>}{loading && <div className="p-5 text-center text-sm text-slate-500">Loading transactions…</div>}</div>
+      <div className="flex items-center justify-between gap-3 border-t border-slate-100 p-3 text-sm text-slate-500"><span>Page {cursorStack.length + 1} · {rows.length} records shown</span><div className="flex items-center gap-2"><button disabled={!cursorStack.length || loading} onClick={previousPage} className="rounded-lg border px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={!hasMore || loading} onClick={nextPage} className="rounded-lg border px-3 py-1.5 disabled:opacity-40">Next 50</button></div></div>
+    </div>
   </Shell>
 }
 
