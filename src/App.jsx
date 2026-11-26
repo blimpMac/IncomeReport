@@ -274,19 +274,20 @@ function Upload() {
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
   const [progress, setProgress] = useState(0)
+  const [company, setCompany] = useState('Greenlight Power Inc.')
   async function choose(e) {
     setErr(''); setMsg('')
     try { setBusy(true); setP(await parseQuickBooksFile(e.target.files[0])) } catch (x) { setErr(x.message) } finally { setBusy(false) }
   }
   async function send() {
-    try { setBusy(true); await uploadQuickBooks(p, setProgress); setMsg(`${p.sheetName} imported: ${number(p.transactions.length)} transactions`) } catch (x) { setErr(x.message) } finally { setBusy(false) }
+    try { setBusy(true); await uploadQuickBooks(p, setProgress, company); setMsg(`${p.sheetName} imported: ${number(p.transactions.length)} transactions`) } catch (x) { setErr(x.message) } finally { setBusy(false) }
   }
   return <>
     <Header title="QB Upload" sub="Upload CSV/XLS/XLSX. The site detects the QB layout and reads it immediately." />
     <ErrorBox v={err} />
     {msg && <div className="mb-4 rounded-lg bg-emerald-50 p-3 text-sm text-emerald-700">{msg}</div>}
     <Card className="p-5"><label className="block rounded-xl border-2 border-dashed p-8 text-center"><input hidden type="file" accept=".csv,.xlsx,.xls" onChange={choose} /><b>{busy && !p ? 'Reading file…' : 'Choose QuickBooks export'}</b><div className="mt-1 text-sm text-slate-500">CSV, XLSX or XLS</div></label></Card>
-    {p && <Card className="mt-5"><div className="grid gap-4 border-b p-4 sm:grid-cols-2 xl:grid-cols-4"><div><small>Worksheet</small><b className="block break-words">{p.sheetName}</b></div><div><small>Report date</small><b className="block">{shortDate(p.reportDate)}</b></div><div><small>Transactions</small><b className="block">{number(p.transactions.length)}</b></div><Button disabled={busy} onClick={send}>{busy ? `Uploading ${progress}%` : 'Import now'}</Button></div><Table minWidth={760} heads={['Date','SOF','Type','Account / Category','Debit','Credit']} rows={p.transactions.slice(0, 10)} row={x => <tr key={x.source_row}><td className="px-3 py-3 whitespace-nowrap">{shortDate(x.transaction_date)}</td><td className="px-3 py-3 font-medium">{displaySof(x)}</td><td className="px-3 py-3 break-words">{x.type}</td><td className="px-3 py-3 break-words"><div>{x.account || '—'}</div><div className="text-xs text-slate-500">{x.category}</div></td><td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{money(x.debit)}</td><td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{money(x.credit)}</td></tr>} /></Card>}
+    {p && <Card className="mt-5"><div className="grid gap-4 border-b p-4 sm:grid-cols-2 xl:grid-cols-5"><label><small className="block">Company</small><select value={company} onChange={e => setCompany(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value="Greenlight Power Inc.">Greenlight Power Inc.</option><option value="Gemcor (Greenmetal Electric)">Gemcor (Greenmetal Electric)</option></select></label><div><small>Worksheet</small><b className="block break-words">{p.sheetName}</b></div><div><small>Report date</small><b className="block">{shortDate(p.reportDate)}</b></div><div><small>Transactions</small><b className="block">{number(p.transactions.length)}</b></div><Button disabled={busy} onClick={send}>{busy ? `Uploading ${progress}%` : 'Import now'}</Button></div><Table minWidth={760} heads={['Date','SOF','Type','Account / Category','Debit','Credit']} rows={p.transactions.slice(0, 10)} row={x => <tr key={x.source_row}><td className="px-3 py-3 whitespace-nowrap">{shortDate(x.transaction_date)}</td><td className="px-3 py-3 font-medium">{displaySof(x)}</td><td className="px-3 py-3 break-words">{x.type}</td><td className="px-3 py-3 break-words"><div>{x.account || '—'}</div><div className="text-xs text-slate-500">{x.category}</div></td><td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{money(x.debit)}</td><td className="px-3 py-3 whitespace-nowrap text-right tabular-nums">{money(x.credit)}</td></tr>} /></Card>}
   </>
 }
 
