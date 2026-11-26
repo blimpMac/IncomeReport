@@ -76,7 +76,7 @@ export default function AppNavigation({ active }) {
             onClick={() => setOpen(false)}
           >{item.label}</a>)}
         </div>)}
-      </nav>}
+      </nav>
     </div>
   </header>
 }
