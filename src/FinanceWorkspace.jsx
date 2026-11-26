@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import * as XLSX from 'xlsx'
 import { money, number, shortDate, supabase } from './lib.js'
 
 const monthName = value => value ? new Date(`${value}-01T00:00:00`).toLocaleDateString('en-PH', { month: 'short', year: 'numeric' }) : '—'
@@ -450,6 +451,171 @@ function ProjectAnalysis() {
   </Shell>
 }
 
+
+function BudgetDashboard() {
+  const { months } = useMonths()
+  const years = useMemo(() => [...new Set(months.map(value => value.slice(0,4)))].sort(), [months])
+  const [company, setCompany] = useState('Greenlight Power Inc.')
+  const [projects, setProjects] = useState([])
+  const [rows, setRows] = useState([])
+  const [offset, setOffset] = useState(0)
+  const [hasMore, setHasMore] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [error, setError] = useState('')
+  const [exporting, setExporting] = useState(false)
+  const [exportType, setExportType] = useState('year')
+  const [exportYear, setExportYear] = useState(years.includes(String(new Date().getFullYear())) ? String(new Date().getFullYear()) : years.at(-1) || '')
+  const [exportMonth, setExportMonth] = useState(months[0] || '')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const pageSize = 100
+
+  useEffect(() => {
+    if (years.length && !years.includes(exportYear)) setExportYear(years.at(-1))
+    if (months.length && !months.includes(exportMonth)) setExportMonth(months[0])
+  }, [years, months, exportYear, exportMonth])
+
+  const projectMap = useMemo(() => new Map(projects.map(project => [String(project.project_key), project])), [projects])
+  const allocated = projects.reduce((sum, project) => sum + Number(project.allocated_budget || 0), 0)
+  const actual = projects.reduce((sum, project) => sum + Number(project.actual_cost || 0), 0)
+  const remaining = allocated - actual
+  const utilization = allocated > 0 ? actual / allocated * 100 : 0
+  const overBudget = projects.filter(project => Number(project.actual_cost || 0) > Number(project.allocated_budget || 0)).length
+
+  useEffect(() => {
+    let active = true
+    setLoading(true); setError('')
+    supabase.rpc('income_budget_projects', { p_company: company }).then(({data,error:queryError}) => {
+      if (!active) return
+      if (queryError) throw queryError
+      setProjects(data || [])
+    }).catch(e => { if (active) setError(e?.message || 'Unable to load project budget records.') })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [company])
+
+  const loadRows = async (reset = false) => {
+    if (!projects.length) { setRows([]); setHasMore(false); return }
+    const pageOffset = reset ? 0 : offset
+    if (reset) setLoadingMore(true); else setLoadingMore(true)
+    setError('')
+    try {
+      const keys = projects.map(project => String(project.project_key)).filter(Boolean)
+      let query = supabase.from('income_all_transactions')
+        .select('id,transaction_date,type,num,name,memo,account,debit,credit,sof_base,sof_key,company')
+        .eq('company', company)
+        .in('sof_base', keys)
+        .order('transaction_date', {ascending:false})
+        .order('id', {ascending:false})
+        .range(pageOffset,pageOffset+pageSize)
+      const {data,error:queryError}=await query
+      if(queryError) throw queryError
+      const result=data||[]
+      setHasMore(result.length>pageSize)
+      setRows(current=>reset?result.slice(0,pageSize):[...current,...result.slice(0,pageSize)])
+      setOffset(pageOffset+Math.min(result.length,pageSize))
+    } catch(e) { setError(e?.message||'Unable to load budget transactions.') }
+    finally { setLoadingMore(false) }
+  }
+
+  useEffect(() => { setRows([]);setOffset(0);setHasMore(false);loadRows(true) }, [projects, company])
+
+  const coverage = () => {
+    if (exportType === 'year') return {from:exportYear ? `${exportYear}-01-01` : '',to:exportYear ? `${exportYear}-12-31` : ''}
+    if (exportType === 'month') {
+      if (!exportMonth) return {from:'',to:''}
+      const [y,m]=exportMonth.split('-').map(Number)
+      return {from:`${exportMonth}-01`,to:new Date(Date.UTC(y,m,0)).toISOString().slice(0,10)}
+    }
+    return {from:startDate,to:endDate}
+  }
+
+  const exportWorkbook = async () => {
+    if(exporting) return
+    const range=coverage()
+    if(!range.from||!range.to) {setError('Select a valid export period before exporting.');return}
+    if(range.from>range.to) {setError('Start date must be on or before end date.');return}
+    setExporting(true);setError('')
+    try {
+      const keys=projects.map(project=>String(project.project_key)).filter(Boolean)
+      const all=[]
+      const batchSize=1000
+      for(let offset=0;;offset+=batchSize){
+        let query=supabase.from('income_all_transactions')
+          .select('id,company,division,transaction_date,type,num,name,memo,account,debit,credit,sof_base,sof_key')
+          .eq('company',company).in('sof_base',keys)
+          .gte('transaction_date',range.from).lte('transaction_date',range.to)
+          .order('transaction_date',{ascending:true}).order('id',{ascending:true})
+          .range(offset,offset+batchSize-1)
+        const {data,error:queryError}=await query
+        if(queryError)throw queryError
+        all.push(...(data||[]))
+        if(!data||data.length<batchSize)break
+      }
+      const workbook=XLSX.utils.book_new()
+      const summary=[
+        ['Budget Monitoring Summary'],['Company',company],['Coverage',`${range.from} to ${range.to}`],
+        ['Allocated Budget',allocated],['Actual Expenses',actual],['Remaining Budget',remaining],
+        ['Budget Utilization (%)',utilization],['Projects Exceeding Budget',overBudget],
+        ['Budgeted Projects',projects.length],['Transactions exported',all.length],
+        [],['Project','SOF','Allocated Budget','Actual Cost','Remaining Budget','Utilization (%)','Status'],
+        ...projects.map(p=>[p.project_name,p.project_key,Number(p.allocated_budget||0),Number(p.actual_cost||0),Number(p.allocated_budget||0)-Number(p.actual_cost||0),Number(p.allocated_budget||0)?Number(p.actual_cost||0)/Number(p.allocated_budget||0)*100:0,Number(p.actual_cost||0)>Number(p.allocated_budget||0)?'Over budget':'Within budget'])
+      ]
+      XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet(summary),'Budget Summary')
+      const grouped=new Map()
+      for(const row of all){const key=String(row.transaction_date||'').slice(0,7)||'Undated';if(!grouped.has(key))grouped.set(key,[]);const p=projectMap.get(String(row.sof_base||row.sof_key||''));const amount=Math.abs(Number(row.debit||0)-Number(row.credit||0));grouped.get(key).push([row.transaction_date,row.type,row.num,row.name,row.memo||row.account,amount,'','',amount,p?Number(p.actual_cost||0):''])}
+      const headers=['Date','Type','Ref. No.','Entity','Particulars','Amount','VAT','Net','Total Amount','Project Cost']
+      for(const [month,items] of grouped){XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet([headers,...items]),month.slice(0,31))}
+      const filename=`budget-monitor-${company==='Greenlight Power Inc.'?'greenlight':'gemcor'}-${range.from}-to-${range.to}.xlsx`
+      XLSX.writeFile(workbook,filename)
+    } catch(e){setError(e?.message||'Unable to export budget workbook.')}
+    finally{setExporting(false)}
+  }
+
+  return <Shell>
+    <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div><p className="monitor-eyebrow">FINANCIAL OPERATIONS</p><h1 className="text-2xl font-semibold text-slate-950">Budget Dashboard</h1><p className="mt-1 text-sm text-slate-500">Monitor allocated project budgets against actual QuickBooks costs.</p></div>
+      <label className="text-xs font-semibold text-slate-600">Company<select value={company} onChange={e=>setCompany(e.target.value)} className="mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm"><option>Greenlight Power Inc.</option><option>Gemcor (Greenmetal Electric)</option></select></label>
+    </div>
+    {error&&<div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
+    <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <Metric label="Total allocated budget" value={money(allocated)} note={`${number(projects.length)} projects with budget data`} tone="green"/>
+      <Metric label="Total actual expenses" value={money(actual)} note="Matched to budgeted SOFs" tone="blue"/>
+      <Metric label="Remaining budget" value={money(remaining)} note={remaining<0?'Over allocated budget':'Available budget'} tone={remaining<0?'red':'green'}/>
+      <Metric label="Budget utilization" value={allocated? `${utilization.toFixed(1)}%`:'—'} note="Actual expenses ÷ allocated budget" tone={utilization>=100?'red':utilization>=80?'amber':'green'}/>
+      <Metric label="Projects over budget" value={number(overBudget)} note="Actual cost exceeds allocation" tone={overBudget?'red':'green'}/>
+    </div>
+    <Card title="Budget utilization" note="Green: within budget · Amber: 80% or more utilized · Red: over budget">
+      <div className="h-4 overflow-hidden rounded-full bg-slate-100"><div className={remaining<0?'h-full bg-rose-500':utilization>=80?'h-full bg-amber-500':'h-full bg-emerald-600'} style={{width:`${Math.min(100,Math.max(0,utilization))}%`}}/></div>
+      <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-slate-500"><span>{utilization.toFixed(1)}% utilized</span><span>Variance: <b className={remaining<0?'text-rose-700':'text-emerald-700'}>{money(remaining)}</b></span></div>
+    </Card>
+    <Card title="Budget monitoring transactions" note="Spreadsheet-style ledger. VAT and net split are not present in the current QuickBooks transaction schema and are intentionally left blank rather than estimated.">
+      <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <label className="text-xs font-semibold text-slate-600">Export coverage<select value={exportType} onChange={e=>setExportType(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="year">Per Year</option><option value="month">Per Month</option><option value="range">Customized Date Range</option></select></label>
+          {exportType==='year'&&<label className="text-xs font-semibold text-slate-600">Year<select value={exportYear} onChange={e=>setExportYear(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">{years.map(y=><option key={y} value={y}>{y}</option>)}</select></label>}
+          {exportType==='month'&&<label className="text-xs font-semibold text-slate-600">Month<input type="month" value={exportMonth} onChange={e=>setExportMonth(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"/></label>}
+          {exportType==='range'&&<><label className="text-xs font-semibold text-slate-600">Start date<input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"/></label><label className="text-xs font-semibold text-slate-600">End date<input type="date" min={startDate||undefined} value={endDate} onChange={e=>setEndDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"/></label></>}
+        </div>
+        <button type="button" onClick={exportWorkbook} disabled={exporting||loading||!projects.length} className="rounded-lg bg-[#173b68] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{exporting?'Preparing XLSX…':'Export Budget XLSX'}</button>
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full min-w-[1150px] border-collapse text-xs">
+          <thead className="bg-[#242a32] text-white"><tr>{['Date','Type','Ref. No.','Entity','Particulars','Amount','VAT','Net','Total Amount','Project Cost'].map(h=><th key={h} className="border border-slate-500 px-2.5 py-2.5 text-left font-bold">{h}</th>)}</tr></thead>
+          <tbody>{rows.map(row=>{const p=projectMap.get(String(row.sof_base||row.sof_key||''));const amount=Math.abs(Number(row.debit||0)-Number(row.credit||0));return <tr key={row.id} className="odd:bg-white even:bg-slate-50"><td className="border border-slate-200 px-2 py-2 whitespace-nowrap">{shortDate(row.transaction_date)}</td><td className="border border-slate-200 px-2 py-2">{row.type||'—'}</td><td className="border border-slate-200 px-2 py-2">{row.num||row.sof_base||'—'}</td><td className="border border-slate-200 px-2 py-2">{row.name||'—'}</td><td className="border border-slate-200 px-2 py-2 max-w-[320px] whitespace-normal">{row.memo||row.account||'—'}</td><td className="border border-slate-200 px-2 py-2 text-right tabular-nums">{money(amount)}</td><td className="border border-slate-200 px-2 py-2 text-right">—</td><td className="border border-slate-200 px-2 py-2 text-right">—</td><td className="border border-slate-200 bg-amber-50 px-2 py-2 text-right font-semibold tabular-nums">{money(amount)}</td><td className="border border-slate-200 bg-emerald-50 px-2 py-2 text-right font-semibold tabular-nums">{p?money(p.actual_cost):'—'}</td></tr>})}</tbody>
+        </table>
+        {!rows.length&&!loading&&!loadingMore&&<p className="p-6 text-center text-sm text-slate-500">No budget-linked transactions found.</p>}
+        {loadingMore&&<p className="p-4 text-center text-xs text-slate-500">Loading budget transactions…</p>}
+      </div>
+      <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-100 pt-3 text-xs text-slate-500"><span>{number(rows.length)} loaded rows · {number(projects.length)} budgeted projects</span>{hasMore&&<button type="button" onClick={()=>loadRows(false)} disabled={loadingMore} className="rounded-lg border border-slate-300 px-3 py-2 font-semibold text-slate-700 disabled:opacity-50">Load more</button>}</div>
+    </Card>
+    <Card title="Project budget register" note="Actual cost is matched by SOF to the latest available reference budget. Projects without a non-zero allocated budget are excluded from budget totals.">
+      <div className="overflow-x-auto"><table className="w-full min-w-[800px] text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr>{['Project','SOF','Allocated budget','Actual cost','Remaining','Utilization','Status'].map(h=><th key={h} className="px-3 py-3 text-left">{h}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{projects.map(p=>{const left=Number(p.allocated_budget||0)-Number(p.actual_cost||0);const pctValue=Number(p.allocated_budget||0)?Number(p.actual_cost||0)/Number(p.allocated_budget||0)*100:0;return <tr key={p.project_key}><td className="px-3 py-3 font-medium">{p.project_name||'Unnamed project'}</td><td className="px-3 py-3">{p.project_key}</td><td className="px-3 py-3 text-right tabular-nums">{money(p.allocated_budget)}</td><td className="px-3 py-3 text-right tabular-nums">{money(p.actual_cost)}</td><td className={`px-3 py-3 text-right tabular-nums ${left<0?'text-rose-700':'text-emerald-700'}`}>{money(left)}</td><td className="px-3 py-3 text-right tabular-nums">{pctValue.toFixed(1)}%</td><td className="px-3 py-3"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${left<0?'bg-rose-50 text-rose-700':pctValue>=80?'bg-amber-50 text-amber-700':'bg-emerald-50 text-emerald-700'}`}>{left<0?'Over budget':pctValue>=80?'Near limit':'Within budget'}</span></td></tr>})}</tbody></table></div>
+    </Card>
+  </Shell>
+}
+
 function TransactionDetails() {
   const [rows, setRows] = useState([])
   const [startDate, setStartDate] = useState('')
@@ -586,5 +752,6 @@ export default function FinanceWorkspace() {
   const page = (location.hash || '#/dashboard').replace(/^#\/?/, '')
   if (page === 'projects') return <ProjectAnalysis />
   if (page === 'transactions') return <TransactionDetails />
+  if (page === 'budget') return <BudgetDashboard />
   return <MainDashboard />
 }
