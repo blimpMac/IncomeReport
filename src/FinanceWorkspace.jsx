@@ -434,11 +434,14 @@ function TransactionDetails() {
   const [rows, setRows] = useState([])
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [company, setCompany] = useState('Greenlight Power Inc.')
+  const [division, setDivision] = useState('all')
   const [category, setCategory] = useState('all')
   const [cursorStack, setCursorStack] = useState([])
   const [hasMore, setHasMore] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const pageSize = 50
   const cursor = cursorStack[cursorStack.length - 1] || null
 
@@ -449,10 +452,12 @@ function TransactionDetails() {
     const load = async () => {
       try {
         let query = supabase.from('income_all_transactions')
-          .select('id,type,transaction_date,name,sof_base,sof_label,memo,account,debit,credit,balance,category')
+          .select('id,company,division,type,transaction_date,name,sof_base,sof_label,memo,account,debit,credit,balance,category')
+          .eq('company', company)
           .order('transaction_date', { ascending: false })
           .order('id', { ascending: false })
           .limit(pageSize + 1)
+        if (division !== 'all') query = query.eq('division', division)
         if (startDate) query = query.gte('transaction_date', startDate)
         if (endDate) query = query.lte('transaction_date', endDate)
         if (category !== 'all') query = query.eq('category', category)
@@ -471,7 +476,7 @@ function TransactionDetails() {
     }
     load()
     return () => { active = false }
-  }, [startDate, endDate, category, cursor?.date, cursor?.id])
+  }, [startDate, endDate, company, division, category, cursor?.date, cursor?.id])
 
   const resetFilters = () => setCursorStack([])
   const nextPage = () => {
@@ -481,23 +486,77 @@ function TransactionDetails() {
   }
   const previousPage = () => setCursorStack(current => current.slice(0, -1))
 
+  const exportCsv = async () => {
+    if (exporting) return
+    setExporting(true)
+    setError('')
+    try {
+      const exported = []
+      const batchSize = 1000
+      for (let offset = 0; ; offset += batchSize) {
+        let query = supabase.from('income_all_transactions')
+          .select('id,company,division,type,transaction_date,name,sof_base,sof_label,memo,account,debit,credit,balance,category')
+          .eq('company', company)
+          .order('transaction_date', { ascending: false })
+          .order('id', { ascending: false })
+          .range(offset, offset + batchSize - 1)
+        if (division !== 'all') query = query.eq('division', division)
+        if (startDate) query = query.gte('transaction_date', startDate)
+        if (endDate) query = query.lte('transaction_date', endDate)
+        if (category !== 'all') query = query.eq('category', category)
+        const { data, error: queryError } = await query
+        if (queryError) throw queryError
+        const batch = data || []
+        exported.push(...batch)
+        if (batch.length < batchSize) break
+      }
+      const headers = ['COMPANY','DIVISION','TYPE','DATE','CLIENT','SOF #','MEMO OR DESCRIPTION','ACCOUNT','DEBIT','CREDIT','RUNNING BALANCE','CATEGORY']
+      const csvCell = value => {
+        const text = value == null ? '' : String(value)
+        return /[",\r\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text
+      }
+      const lines = [headers, ...exported.map(row => [
+        row.company, row.division, row.type, row.transaction_date, row.name,
+        row.sof_base || row.sof_label, row.memo, row.account, row.debit, row.credit,
+        row.balance, row.category,
+      ])].map(line => line.map(csvCell).join(','))
+      const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement('a')
+      const companySlug = company === 'Greenlight Power Inc.' ? 'greenlight' : 'gemcor'
+      const divisionSlug = division === 'all' ? 'all-divisions' : division.toLowerCase()
+      anchor.href = url
+      anchor.download = `e-works-${companySlug}-${divisionSlug}-transactions-${new Date().toISOString().slice(0,10)}.csv`
+      document.body.appendChild(anchor)
+      anchor.click()
+      anchor.remove()
+      URL.revokeObjectURL(url)
+    } catch (exportError) {
+      setError(exportError?.message || 'Unable to export the filtered transactions.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return <Shell page="transactions">
     <div className="mb-6 flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div><p className="monitor-eyebrow">FINANCIAL OPERATIONS</p><h1 className="text-2xl font-semibold text-slate-950">All Transactions</h1><p className="mt-1 text-sm text-slate-500">Browse the latest QuickBooks upload. Loads 50 records at a time without counting or scanning the full transaction history.</p></div>
+        <div><p className="monitor-eyebrow">FINANCIAL OPERATIONS</p><h1 className="text-2xl font-semibold text-slate-950">All Transactions</h1><p className="mt-1 text-sm text-slate-500">Company-separated QuickBooks ledger. Filters are applied in the database before rows are returned.</p></div>
         <a href="#/dashboard" className="text-sm font-semibold text-emerald-700 hover:text-emerald-900">← Back to Financial Monitor</a>
       </div>
-      <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+        <label className="text-xs font-semibold text-slate-600">Company<select value={company} onChange={e => {setCompany(e.target.value);resetFilters()}} className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-800"><option value="Greenlight Power Inc.">Greenlight Power Inc.</option><option value="Gemcor (Greenmetal Electric)">Gemcor (Greenmetal Electric)</option></select></label>
+        <label className="text-xs font-semibold text-slate-600">Division<select value={division} onChange={e => {setDivision(e.target.value);resetFilters()}} className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-800"><option value="all">All divisions</option><option value="CIVILWORKS">Civilworks</option><option value="EWORKS">Eworks</option><option value="SUPPLY">Supply</option><option value="All Transactions">All Transactions</option></select></label>
         <label className="text-xs font-semibold text-slate-600">From date<input type="date" value={startDate} onChange={e => {setStartDate(e.target.value);resetFilters()}} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800" /></label>
         <label className="text-xs font-semibold text-slate-600">To date<input type="date" value={endDate} min={startDate || undefined} onChange={e => {setEndDate(e.target.value);resetFilters()}} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-normal text-slate-800" /></label>
         <label className="text-xs font-semibold text-slate-600">Category filter<select value={category} onChange={e => {setCategory(e.target.value);resetFilters()}} className="mt-1 block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-800"><option value="all">All categories</option><option value="Revenue">Revenue</option><option value="Materials">Materials</option><option value="Overhead">Overhead</option><option value="Labor">Labor</option><option value="Other">Other</option></select></label>
-        <div className="flex items-end"><button type="button" onClick={() => {setStartDate('');setEndDate('');setCategory('all');setCursorStack([])}} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Clear filters</button></div>
+        <div className="flex items-end"><button type="button" onClick={() => {setStartDate('');setEndDate('');setCompany('Greenlight Power Inc.');setDivision('all');setCategory('all');setCursorStack([])}} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">Clear filters</button></div>
       </div>
     </div>
     {error && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
     <div className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm">
-      <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-3"><div><h2 className="text-sm font-semibold text-slate-900">QuickBooks transaction ledger</h2><p className="mt-1 text-xs text-slate-500">Actual transaction dates · newest first · 50-row keyset pagination</p></div><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{rows.length} records on this page</span></div>
-      <div className="overflow-x-auto"><table className="w-full min-w-[1250px] text-left text-sm"><thead className="bg-[#173b68] text-xs uppercase text-white"><tr>{['TYPE','DATE','CLIENT','SOF #','MEMO OR DESCRIPTION','ACCOUNT','DEBIT','CREDIT','BALANCE'].map(x => <th key={x} className="whitespace-nowrap px-3 py-3">{x}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{rows.map((row,index) => <tr key={row.id || index}><td className="whitespace-nowrap px-3 py-3">{row.type || '—'}</td><td className="whitespace-nowrap px-3 py-3">{shortDate(row.transaction_date)}</td><td className="max-w-[220px] truncate px-3 py-3" title={row.name}>{row.name || '—'}</td><td className="whitespace-nowrap px-3 py-3">{row.sof_base || row.sof_label || '—'}</td><td className="max-w-[320px] px-3 py-3"><div className="line-clamp-2" title={row.memo}>{row.memo || '—'}</div></td><td className="max-w-[220px] truncate px-3 py-3" title={row.account}>{row.account || '—'}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.debit)}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.credit)}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.balance)}</td></tr>)}</tbody></table>{!rows.length && !loading && !error && <div className="p-8 text-center text-sm text-slate-500">No transactions found for these filters.</div>}{loading && <div className="p-5 text-center text-sm text-slate-500">Loading transactions…</div>}</div>
+      <div className="flex flex-col gap-3 border-b border-slate-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"><div><h2 className="text-sm font-semibold text-slate-900">QuickBooks transaction ledger · {company}</h2><p className="mt-1 text-xs text-slate-500">Actual transaction dates · newest first · 50-row keyset pagination · category retained</p></div><div className="flex items-center gap-2"><span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">{rows.length} records on this page</span><button type="button" onClick={exportCsv} disabled={exporting || loading} className="rounded-lg bg-[#173b68] px-3 py-2 text-xs font-semibold text-white hover:bg-[#102d50] disabled:cursor-not-allowed disabled:opacity-50">{exporting ? 'Preparing CSV…' : 'Export CSV'}</button></div></div>
+      <div className="overflow-x-auto"><table className="w-full min-w-[1250px] text-left text-sm"><thead className="bg-[#173b68] text-xs uppercase text-white"><tr>{['TYPE','DATE','CLIENT','SOF #','MEMO OR DESCRIPTION','ACCOUNT','DEBIT','CREDIT','RUNNING BALANCE'].map(x => <th key={x} className="whitespace-nowrap px-3 py-3">{x}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{rows.map(row => <tr key={row.id}><td className="whitespace-nowrap px-3 py-3">{row.type || '—'}</td><td className="whitespace-nowrap px-3 py-3">{shortDate(row.transaction_date)}</td><td className="max-w-[220px] truncate px-3 py-3" title={row.name}>{row.name || '—'}</td><td className="whitespace-nowrap px-3 py-3">{row.sof_base || row.sof_label || '—'}</td><td className="min-w-[320px] max-w-[520px] whitespace-normal break-words px-3 py-3 align-top"><div className="text-slate-700" title={row.memo}>{row.memo || '—'}</div></td><td className="max-w-[220px] truncate px-3 py-3" title={row.account}>{row.account || '—'}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.debit)}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.credit)}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.balance)}</td></tr>)}</tbody></table>{!rows.length && !loading && !error && <div className="p-8 text-center text-sm text-slate-500">No transactions found for these filters. Check whether a QuickBooks upload exists for the selected company.</div>}{loading && <div className="p-5 text-center text-sm text-slate-500">Loading transactions…</div>}</div>
       <div className="flex items-center justify-between gap-3 border-t border-slate-100 p-3 text-sm text-slate-500"><span>Page {cursorStack.length + 1} · {rows.length} records shown</span><div className="flex items-center gap-2"><button disabled={!cursorStack.length || loading} onClick={previousPage} className="rounded-lg border px-3 py-1.5 disabled:opacity-40">Previous</button><button disabled={!hasMore || loading} onClick={nextPage} className="rounded-lg border px-3 py-1.5 disabled:opacity-40">Next 50</button></div></div>
     </div>
   </Shell>
