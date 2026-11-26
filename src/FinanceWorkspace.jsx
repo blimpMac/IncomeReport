@@ -47,7 +47,7 @@ function DonutChart({ rows, total, emptyLabel }) {
   </div>
 }
 
-function useMonths() {
+function useMonths(company = 'Greenlight Power Inc.') {
   const [months, setMonths] = useState([])
   const [error, setError] = useState('')
   useEffect(() => {
@@ -63,7 +63,7 @@ function useMonths() {
           const { data, error: queryError } = await supabase.from('income_qb_uploads')
             .select('detected_min_date,detected_max_date,status')
             .eq('status', 'ready')
-            .eq('company', 'Greenlight Power Inc.')
+            .eq('company', company)
             .order('created_at', { ascending: true })
             .range(offset, offset + pageSize - 1)
           if (queryError) throw queryError
@@ -91,7 +91,7 @@ function useMonths() {
     }
     loadMonths()
     return () => { active = false }
-  }, [])
+  }, [company])
   return { months, error }
 }
 
@@ -624,7 +624,8 @@ function BudgetDashboard() {
 }
 
 function TransactionDetails() {
-  const { months: availableMonths } = useMonths()
+  const [company, setCompany] = useState('Greenlight Power Inc.')
+  const { months: availableMonths } = useMonths(company)
   const exportYears = useMemo(() => [...new Set(availableMonths.map(value => value.slice(0,4)))].sort(), [availableMonths])
   const [exportType, setExportType] = useState('year')
   const [exportYear, setExportYear] = useState('')
@@ -634,7 +635,6 @@ function TransactionDetails() {
   const [rows, setRows] = useState([])
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
-  const [company, setCompany] = useState('Greenlight Power Inc.')
   const [division, setDivision] = useState('all')
   const [category, setCategory] = useState('all')
   const [cursorStack, setCursorStack] = useState([])
