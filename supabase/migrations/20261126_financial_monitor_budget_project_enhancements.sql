@@ -65,7 +65,7 @@ select jsonb_build_object(
     'gross_profit', round(a.revenue-(a.materials+a.labor+a.overhead+a.other_cost),2),
     'margin_pct', case when a.revenue<>0 then round((a.revenue-(a.materials+a.labor+a.overhead+a.other_cost))/a.revenue*100,2) end
   ) from agg a),
-  'sof_rows', coalesce((select jsonb_agg(to_jsonb(s) order by abs(s.revenue)+abs(s.materials+s.labor+s.overhead+s.other_cost) desc) from sof s),'[]'::jsonb),
+  'sof_rows', coalesce((select jsonb_agg(to_jsonb(s) || jsonb_build_object('total_cost',round(s.materials+s.labor+s.overhead+s.other_cost,2),'gross_profit',round(s.revenue-(s.materials+s.labor+s.overhead+s.other_cost),2),'margin_pct',case when s.revenue<>0 then round((s.revenue-(s.materials+s.labor+s.overhead+s.other_cost))/s.revenue*100,2) end) order by abs(s.revenue)+abs(s.materials+s.labor+s.overhead+s.other_cost) desc) from sof s),'[]'::jsonb),
   'cost_accounts', coalesce((select jsonb_agg(to_jsonb(a) order by abs(a.net_cost) desc) from accounts a),'[]'::jsonb)
 );
 $$;
