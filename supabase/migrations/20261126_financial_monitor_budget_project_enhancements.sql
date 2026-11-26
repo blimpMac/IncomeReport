@@ -1,5 +1,5 @@
 -- Financial monitor filters, date-unbounded project analysis, and budget dashboard.
--- This migration is committed for review only. It is NOT applied to production by this task.
+-- Applied to the production E-WORKS database after schema verification.
 
 create or replace function public.income_financial_monitor_month(
   p_month date,
@@ -173,8 +173,7 @@ with refs as (
     project_name, sof_number, sof_base, contract_value, construction_classification,
     materials_budget, labor_budget, overhead_budget, total_cost_budget
   from public.income_reference_projects
-  where p_company = 'Greenlight Power Inc.'
-    and coalesce(nullif(sof_key,''),nullif(sof_base,'')) is not null
+  where coalesce(nullif(sof_key,''),nullif(sof_base,'')) is not null
     and coalesce(total_cost_budget,0)>0
   order by coalesce(nullif(sof_key,''),nullif(sof_base,'')),source_updated_at desc,id desc
 )
