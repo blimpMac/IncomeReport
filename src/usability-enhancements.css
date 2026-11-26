@@ -1,0 +1,150 @@
+/* E-WORKS usability pass: clearer hierarchy, calmer surfaces, accessible controls,
+   and predictable scrolling without changing data, queries, or business logic. */
+:root {
+  color-scheme: light;
+  --ew-ink: #1e293b;
+  --ew-muted: #64748b;
+  --ew-line: #e2e8f0;
+  --ew-surface: #ffffff;
+  --ew-canvas: #f6f8fb;
+  --ew-accent: #315f91;
+}
+html, body, #root { min-height: 100%; }
+body { color: var(--ew-ink); background: var(--ew-canvas); }
+#root main, .app-page-main { color: var(--ew-ink); }
+#root main h1, .app-page-main h1 {
+  line-height: 1.25;
+  letter-spacing: -.025em;
+}
+#root main h2, .app-page-main h2 {
+  line-height: 1.35;
+  letter-spacing: -.012em;
+}
+#root main p, .app-page-main p { line-height: 1.55; }
+#root main .shadow-sm, .app-page-main .shadow-sm {
+  box-shadow: 0 1px 3px rgba(15,23,42,.045), 0 5px 18px rgba(15,23,42,.025) !important;
+}
+#root main .shadow-sm:hover, .app-page-main .shadow-sm:hover {
+  border-color: #d5deea !important;
+}
+#root main button, .app-page-main button,
+#root main a, .app-page-main a {
+  -webkit-tap-highlight-color: transparent;
+}
+#root main button:focus-visible, .app-page-main button:focus-visible,
+#root main a:focus-visible, .app-page-main a:focus-visible,
+#root main input:focus-visible, .app-page-main input:focus-visible,
+#root main select:focus-visible, .app-page-main select:focus-visible,
+#root main textarea:focus-visible, .app-page-main textarea:focus-visible {
+  outline: 3px solid rgba(49,95,145,.25) !important;
+  outline-offset: 2px;
+}
+#root main input, #root main select, #root main textarea,
+.app-page-main input, .app-page-main select, .app-page-main textarea {
+  border-color: #d6deea !important;
+  border-radius: 8px;
+  color: #263449;
+}
+#root main input::placeholder, .app-page-main input::placeholder,
+#root main textarea::placeholder, .app-page-main textarea::placeholder {
+  color: #94a3b8;
+}
+#root main table thead th, .app-page-main table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: #f5f7fa;
+  color: #64748b;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .045em;
+}
+#root main table tbody tr, .app-page-main table tbody tr {
+  transition: background-color .12s ease;
+}
+#root main table tbody tr:hover, .app-page-main table tbody tr:hover {
+  background-color: #f7faff;
+}
+#root main table td, .app-page-main table td {
+  font-variant-numeric: tabular-nums;
+}
+#root main .overflow-x-auto, .app-page-main .overflow-x-auto,
+#root main .scrollbar-thin, .app-page-main .scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+  overscroll-behavior-inline: contain;
+}
+#root main .overflow-x-auto::-webkit-scrollbar,
+.app-page-main .overflow-x-auto::-webkit-scrollbar { height: 8px; }
+#root main .overflow-x-auto::-webkit-scrollbar-thumb,
+.app-page-main .overflow-x-auto::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 10px;
+  background: #cbd5e1;
+  background-clip: padding-box;
+}
+#root main [role="alert"], .app-page-main [role="alert"] {
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+#root main [aria-busy="true"], .app-page-main [aria-busy="true"] {
+  cursor: progress;
+}
+#root main .text-slate-400, .app-page-main .text-slate-400 { color: #8492a6 !important; }
+#root main .text-slate-500, .app-page-main .text-slate-500 { color: #64748b !important; }
+#root main .border-slate-100, .app-page-main .border-slate-100 { border-color: #edf1f6 !important; }
+#root main .rounded-xl, .app-page-main .rounded-xl { border-radius: 12px; }
+#root main .rounded-2xl, .app-page-main .rounded-2xl { border-radius: 14px; }
+
+/* Keep dense filter/action rows from pushing cards beyond their container. */
+#root main .flex.items-end, #root main .flex.items-center,
+.app-page-main .flex.items-end, .app-page-main .flex.items-center {
+  min-width: 0;
+}
+#root main label, .app-page-main label { min-width: 0; }
+#root main input[type="date"], #root main input[type="month"],
+.app-page-main input[type="date"], .app-page-main input[type="month"] {
+  max-width: 100%;
+}
+.app-page-main .monitor-period,
+.app-page-main .monitor-heading { min-width: 0; }
+.app-page-main .monitor-period > *,
+.app-page-main .monitor-heading > * { min-width: 0; }
+
+/* Numeric values should scan vertically; long narrative fields may wrap. */
+#root main td.text-right, .app-page-main td.text-right,
+#root main .tabular-nums, .app-page-main .tabular-nums {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+#root main td, .app-page-main td { overflow-wrap: anywhere; }
+#root main td .whitespace-nowrap, .app-page-main td .whitespace-nowrap {
+  overflow-wrap: normal;
+}
+
+/* Compact, readable screens at laptop and browser-zoom widths. */
+@media (max-width: 900px) {
+  #root main, .app-page-main { padding-inline: 1rem !important; }
+  #root main .flex.flex-wrap, .app-page-main .flex.flex-wrap { row-gap: .65rem; }
+}
+@media (max-width: 640px) {
+  #root main, .app-page-main { padding-inline: .75rem !important; }
+  #root main h1, .app-page-main h1 { font-size: 1.35rem !important; }
+  #root main .shadow-sm, .app-page-main .shadow-sm { border-radius: 10px !important; }
+  #root main button, .app-page-main button { min-height: 2.5rem; }
+  #root main .overflow-x-auto, .app-page-main .overflow-x-auto {
+    max-width: 100%;
+    touch-action: pan-x pan-y;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #root main *, .app-page-main * {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+  }
+}
+@media print {
+  body { background: #fff !important; }
+  #root main table thead th, .app-page-main table thead th { position: static; }
+}
