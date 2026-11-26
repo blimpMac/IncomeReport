@@ -157,51 +157,201 @@ function Metric({ label, value, note, tone }) {
   return <div className={`monitor-metric ${tone}`}><div className="monitor-metric-label">{label}</div><div className="monitor-metric-value">{value}</div><div className="monitor-metric-note">{note}</div></div>
 }
 
+function dateInputValue(date = new Date()) {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return \`\${y}-\${m}-\${d}\`
+}
+
+function dateMinusDays(value, days) {
+  const [year, month, day] = String(value || '').split('-').map(Number)
+  if (!year || !month || !day) return ''
+  const date = new Date(year, month - 1, day)
+  date.setDate(date.getDate() - days)
+  return dateInputValue(date)
+}
+
+function dateLabel(value) {
+  if (!value) return '—'
+  const [year, month, day] = value.split('-').map(Number)
+  return new Date(year, month - 1, day).toLocaleDateString('en-PH', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+const projectCost = row => Number(row.materials || 0) + Number(row.labor || 0) + Number(row.overhead || 0) + Number(row.other || 0)
+
+function ProjectBars({ budget, actual }) {
+  const max = Math.max(1, Number(budget || 0), Number(actual || 0))
+  return <div className="space-y-3">
+    {[{ label: 'Budget', value: Number(budget || 0), color: '#94a3b8' }, { label: 'Actual cost', value: Number(actual || 0), color: '#16876f' }].map(item => <div key={item.label}>
+      <div className="mb-1 flex items-center justify-between gap-3 text-xs"><span className="font-medium text-slate-600">{item.label}</span><b className="tabular-nums text-slate-800">{money(item.value)}</b></div>
+      <div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: \`\${Math.max(item.value > 0 ? 1 : 0, item.value / max * 100)}%\`, background: item.color }} /></div>
+    </div>)}
+  </div>
+}
+
 function ProjectAnalysis() {
-  const { months, error: monthsError } = useMonths()
-  const [month, setMonth] = useState('')
+  const [selectedDate, setSelectedDate] = useState(() => dateInputValue())
   const [projects, setProjects] = useState([])
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(true)
-  useEffect(() => { if (months.length && !month) setMonth(months[0]) }, [months, month])
+  const [loading, setLoading] = useState(false)
+  const startDate = useMemo(() => dateMinusDays(selectedDate, 14), [selectedDate])
+  const rangeLabel = \`\${dateLabel(startDate)} – \${dateLabel(selectedDate)}\`
+
   useEffect(() => {
-    if (!month) return
+    if (!selectedDate || !startDate) return
     let active = true
-    setLoading(true)
-    Promise.all([
-      supabase.rpc('income_monthly_project_summary', { p_month: `${month}-01` }),
-      supabase.from('income_reference_projects').select('sof_base,sof_key,sof_number,project_name').limit(2000),
-    ]).then(([result, refResult]) => {
-      if (!active) return
-      if (result.error || refResult.error) setError(result.error?.message || refResult.error?.message)
-      else {
+    const load = async () => {
+      setLoading(true)
+      setError('')
+      try {
+        const [refResult] = await Promise.all([
+          supabase.from('income_reference_projects')
+            .select('sof_base,sof_key,sof_number,project_name,division,construction_classification,contract_value,final_contract_value,materials_budget,labor_budget,overhead_budget,total_cost_budget')
+            .limit(2000),
+        ])
+        if (refResult.error) throw refResult.error
+
+        const transactions = []
+        const pageSize = 1000
+        for (let offset = 0; ; offset += pageSize) {
+          const { data, error: txError } = await supabase.from('income_transactions_ready')
+            .select('transaction_date,division,project_group,sof_label,sof_key,sof_base,category,debit,credit,account')
+            .gte('transaction_date', startDate)
+            .lte('transaction_date', selectedDate)
+            .order('transaction_date', { ascending: true })
+            .range(offset, offset + pageSize - 1)
+          if (txError) throw txError
+          transactions.push(...(data || []))
+          if (!data || data.length < pageSize) break
+        }
+        if (!active) return
+
         const refs = refResult.data || []
-        const projectRows = (result.data || []).map(row => {
-          const ref = refs.find(item => String(item.sof_base || '') === String(row.sof_base || '') || (item.sof_key && item.sof_key === row.sof_key))
-          return { ...row, categoryLabel: categoryName(row.division), projectName: ref?.project_name || row.project_group || 'Project name unavailable' }
+        const grouped = new Map()
+        for (const tx of transactions) {
+          const key = String(tx.sof_base || tx.sof_key || tx.project_group || 'Unassigned')
+          const ref = refs.find(item =>
+            (tx.sof_base && String(item.sof_base || '') === String(tx.sof_base)) ||
+            (tx.sof_key && item.sof_key === tx.sof_key) ||
+            (!tx.sof_base && !tx.sof_key && tx.project_group && item.project_name === tx.project_group)
+          )
+          const project = grouped.get(key) || {
+            key,
+            label: ref?.project_name || tx.project_group || tx.sof_label || 'Unassigned project',
+            categoryLabel: categoryName(ref?.division || ref?.construction_classification || tx.division),
+            budget: Number(ref?.total_cost_budget || 0),
+            contractValue: Number(ref?.final_contract_value || ref?.contract_value || 0),
+            revenue: 0, materials: 0, labor: 0, overhead: 0, other: 0, transactionCount: 0,
+            accounts: new Map(),
+          }
+          const debit = Number(tx.debit || 0)
+          const credit = Number(tx.credit || 0)
+          if (tx.category === 'Revenue') project.revenue += credit - debit
+          else {
+            const cost = debit - credit
+            if (tx.category === 'Materials') project.materials += cost
+            else if (tx.category === 'Labor') project.labor += cost
+            else if (tx.category === 'Overhead') project.overhead += cost
+            else project.other += cost
+            const account = tx.account || 'Unspecified'
+            project.accounts.set(account, (project.accounts.get(account) || 0) + cost)
+          }
+          project.transactionCount += 1
+          grouped.set(key, project)
+        }
+        const rows = [...grouped.values()].map(project => {
+          const actual = projectCost(project)
+          return {
+            ...project,
+            actual,
+            cogs: project.materials + project.labor,
+            variance: project.budget > 0 ? project.budget - actual : null,
+            grossProfit: project.revenue - actual,
+            margin: project.revenue > 0 ? (project.revenue - actual) / project.revenue * 100 : null,
+            accounts: [...project.accounts.entries()].map(([account, value]) => ({ account, value })).sort((a, b) => Math.abs(b.value) - Math.abs(a.value)),
+          }
         })
-        setProjects(projectRows); setError('')
+        setProjects(rows)
+      } catch (loadError) {
+        if (active) setError(loadError?.message || 'Unable to load project activity for the selected date range.')
+      } finally {
+        if (active) setLoading(false)
       }
-      setLoading(false)
-    })
+    }
+    load()
     return () => { active = false }
-  }, [month])
+  }, [selectedDate, startDate])
+
   const categories = useMemo(() => {
     const map = new Map()
-    for (const item of projects) {
-      if (!map.has(item.categoryLabel)) map.set(item.categoryLabel, { name: item.categoryLabel, projects: new Map(), revenue: 0, cost: 0 })
-      const group = map.get(item.categoryLabel)
-      const key = item.sof_base || item.sof_key || item.project_group || 'Unassigned'
-      const project = group.projects.get(key) || { key, label: item.projectName, revenue: 0, cost: 0 }
-      project.revenue += Number(item.revenue || 0); project.cost += Number(item.total_cost || 0)
-      group.projects.set(key, project); group.revenue += Number(item.revenue || 0); group.cost += Number(item.total_cost || 0)
+    for (const project of projects) {
+      if (!map.has(project.categoryLabel)) map.set(project.categoryLabel, { name: project.categoryLabel, projects: [], revenue: 0, actual: 0, budget: 0, cogs: 0 })
+      const group = map.get(project.categoryLabel)
+      group.projects.push(project)
+      group.revenue += project.revenue
+      group.actual += project.actual
+      group.budget += project.budget
+      group.cogs += project.cogs
     }
     const order = ['Supply', 'Eworks', 'Servicing', 'Civil Works', 'Uncategorized']
-    return order.map(name => map.get(name) || { name, projects: new Map(), revenue: 0, cost: 0 })
+    return order.map(name => map.get(name) || { name, projects: [], revenue: 0, actual: 0, budget: 0, cogs: 0 })
   }, [projects])
-  return <Shell page="projects"><div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between"><div><h1 className="text-2xl font-semibold text-slate-950">Project Analysis</h1><p className="mt-1 text-sm text-slate-500">Monthly sales and costs by category, project, and SOF.</p></div><label className="text-xs font-semibold text-slate-500">Report month<select value={month} onChange={e => setMonth(e.target.value)} className="mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800">{months.map(value => <option value={value} key={value}>{monthName(value)}</option>)}</select></label></div>
-    {(error || monthsError) && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error || monthsError}</div>}
-    {loading ? <div className="rounded-xl border border-emerald-100 bg-white p-8 text-center text-sm text-slate-500">Loading project analysis…</div> : <div className="space-y-4">{categories.map(category => <details key={category.name} open={category.projects.size > 0} className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm"><summary className="cursor-pointer list-none bg-emerald-50 px-4 py-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="font-semibold text-emerald-950">{category.name}</h2><p className="mt-1 text-xs text-slate-500">{number(category.projects.size)} projects · {monthName(month)}</p></div><div className="flex gap-5 text-right text-xs"><span><b className="block text-emerald-800">{money(category.revenue)}</b>Sales</span><span><b className="block text-blue-800">{money(category.cost)}</b>Costs</span></div></div></summary>{category.projects.size ? <div className="divide-y divide-slate-100">{[...category.projects.values()].sort((a,b) => a.label.localeCompare(b.label)).map(project => <div key={project.key} className="grid gap-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_150px_150px]"><div className="min-w-0"><b className="block truncate text-sm text-slate-800">{project.label}</b><span className="text-xs text-slate-500">SOF {project.key}</span></div><div className="text-sm sm:text-right"><span className="mr-2 text-xs text-slate-500 sm:hidden">Sales</span>{money(project.revenue)}</div><div className="text-sm sm:text-right"><span className="mr-2 text-xs text-slate-500 sm:hidden">Cost</span>{money(project.cost)}</div></div>)}</div> : <div className="px-4 py-3 text-xs text-slate-500">No project transactions recorded for this month.</div>}</details>)}</div>}
+
+  const totals = useMemo(() => projects.reduce((acc, project) => ({
+    revenue: acc.revenue + project.revenue,
+    actual: acc.actual + project.actual,
+    budget: acc.budget + project.budget,
+    cogs: acc.cogs + project.cogs,
+  }), { revenue: 0, actual: 0, budget: 0, cogs: 0 }), [projects])
+  const variance = totals.budget > 0 ? totals.budget - totals.actual : null
+
+  return <Shell page="projects">
+    <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+      <div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">Project monitoring</p><h1 className="mt-1 text-2xl font-semibold text-slate-950">Project Analysis</h1><p className="mt-1 text-sm text-slate-500">Review actual project activity over the 14 days leading up to your selected date.</p></div>
+      <label className="block text-xs font-semibold text-slate-500">Analysis date
+        <input type="date" value={selectedDate} onChange={event => setSelectedDate(event.target.value)} className="mt-1 block min-w-[190px] rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-800" />
+        <span className="mt-1 block font-normal text-slate-400">Coverage: {rangeLabel}</span>
+      </label>
+    </div>
+    {error && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
+    <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <Metric label="Project revenue" value={money(totals.revenue)} note={rangeLabel} tone="green" />
+      <Metric label="Actual project cost" value={money(totals.actual)} note="Materials, labor, overhead and other" tone="blue" />
+      <Metric label="COGS" value={money(totals.cogs)} note="Materials + labor" tone="blue" />
+      <Metric label="Budget variance" value={variance == null ? '—' : money(variance)} note={variance == null ? 'No project cost budgets mapped' : variance >= 0 ? 'Remaining budget' : 'Over budget'} tone={variance != null && variance < 0 ? 'red' : 'green'} />
+    </div>
+    {loading ? <div className="rounded-xl border border-emerald-100 bg-white p-8 text-center text-sm text-slate-500">Loading project activity…</div> : <div className="space-y-4">
+      {projects.length > 0 && <Card title="Portfolio cost vs budget" note={\`Actual project costs compared with mapped total cost budgets · \${rangeLabel}\`}>
+        <ProjectBars budget={totals.budget} actual={totals.actual} />
+        <div className="mt-4 grid gap-3 text-xs text-slate-500 sm:grid-cols-3"><span>Revenue <b className="text-slate-800">{money(totals.revenue)}</b></span><span>COGS <b className="text-slate-800">{money(totals.cogs)}</b></span><span>Projects <b className="text-slate-800">{number(projects.length)}</b></span></div>
+      </Card>}
+      {categories.map(category => <section key={category.name} className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 bg-emerald-50 px-4 py-4">
+          <div><h2 className="font-semibold text-emerald-950">{category.name}</h2><p className="mt-1 text-xs text-slate-500">{number(category.projects.length)} projects · {rangeLabel}</p></div>
+          <div className="flex flex-wrap gap-4 text-right text-xs"><span><b className="block text-emerald-800">{money(category.revenue)}</b>Revenue</span><span><b className="block text-blue-800">{money(category.actual)}</b>Actual cost</span><span><b className="block text-slate-700">{money(category.cogs)}</b>COGS</span></div>
+        </div>
+        {category.projects.length ? <div className="divide-y divide-slate-100">{[...category.projects].sort((a, b) => a.label.localeCompare(b.label)).map(project => <details key={project.key} className="group">
+          <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-4 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
+            <div className="flex min-w-0 items-center gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-700 transition-transform group-open:rotate-90">›</span><div className="min-w-0"><b className="block truncate text-sm text-slate-800">{project.label}</b><span className="text-xs text-slate-500">SOF {project.key} · {number(project.transactionCount)} transactions</span></div></div>
+            <div className="grid grid-cols-2 gap-x-5 gap-y-1 text-right text-xs sm:grid-cols-4"><span><b className="block text-slate-800">{money(project.revenue)}</b>Revenue</span><span><b className="block text-slate-800">{money(project.actual)}</b>Actual cost</span><span><b className="block text-slate-800">{money(project.cogs)}</b>COGS</span><span><b className={\`block \${project.variance != null && project.variance < 0 ? 'text-rose-700' : 'text-emerald-700'}\`}>{project.variance == null ? '—' : money(project.variance)}</b>Variance</span></div>
+          </summary>
+          <div className="grid gap-4 border-t border-slate-100 bg-slate-50/60 p-4 lg:grid-cols-2">
+            <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-xs text-slate-500">Actual project cost</p><b className="mt-1 block text-lg text-slate-900">{money(project.actual)}</b></div><div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-xs text-slate-500">Budget variance</p><b className={\`mt-1 block text-lg \${project.variance != null && project.variance < 0 ? 'text-rose-700' : 'text-emerald-700'}\`}>{project.variance == null ? 'No budget' : money(project.variance)}</b><p className="mt-1 text-[11px] text-slate-400">{project.variance == null ? 'No mapped budget available' : project.variance >= 0 ? 'Under budget' : 'Over budget'}</p></div></div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4"><h3 className="mb-3 text-sm font-semibold text-slate-800">Budget vs actual</h3><ProjectBars budget={project.budget} actual={project.actual} /></div>
+              <div className="rounded-xl border border-slate-200 bg-white p-4"><h3 className="mb-3 text-sm font-semibold text-slate-800">Cost breakdown</h3>
+                {[['Materials', project.materials], ['Labor', project.labor], ['Overhead', project.overhead], ['Other / unmapped', project.other]].map(([label, value], index) => <div key={label} className="mb-3 last:mb-0"><div className="mb-1 flex justify-between gap-3 text-xs"><span className="text-slate-600">{label}</span><b className="text-slate-800">{money(value)}</b></div><div className="h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full" style={{ width: \`\${project.actual > 0 ? Math.max(0, Number(value) / project.actual * 100) : 0}%\`, background: ['#16876f', '#397da3', '#d7973e', '#bd6670'][index] }} /></div></div>)}
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4"><h3 className="mb-3 text-sm font-semibold text-slate-800">Cost by QuickBooks account</h3>{project.accounts.length ? <div className="space-y-3">{project.accounts.slice(0, 8).map(account => <div key={account.account}><div className="mb-1 flex justify-between gap-3 text-xs"><span className="min-w-0 truncate text-slate-600">{account.account}</span><b className="shrink-0 text-slate-800">{money(account.value)}</b></div><div className="h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-indigo-500" style={{ width: \`\${project.actual > 0 ? Math.max(0, account.value / project.actual * 100) : 0}%\` }} /></div></div>)}</div> : <p className="text-sm text-slate-500">No cost transactions in this date range.</p>}
+              <div className="mt-5 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2"><div><p className="text-xs text-slate-500">Gross profit / (loss)</p><b className={\`mt-1 block text-base \${project.grossProfit < 0 ? 'text-rose-700' : 'text-emerald-700'}\`}>{money(project.grossProfit)}</b></div><div><p className="text-xs text-slate-500">Gross margin</p><b className="mt-1 block text-base text-slate-900">{project.margin == null ? '—' : \`\${project.margin.toFixed(1)}%\`}</b></div></div>
+            </div>
+          </div>
+        </details>)}</div> : <div className="px-4 py-4 text-xs text-slate-500">No project transactions recorded in this 14-day window.</div>}
+      </section>)}
+      {!projects.length && <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">No project transactions found from {rangeLabel}.</div>}
+    </div>}
   </Shell>
 }
 
