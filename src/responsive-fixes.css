@@ -220,3 +220,73 @@ html, body, #root {
     overflow: visible !important;
   }
 }
+
+
+/* Final content-fit pass for finance workspace pages. Keep flex/grid children
+   from forcing their cards wider than the available content column. */
+.app-page,
+.app-page-main,
+.app-page-main > *,
+.app-page-main section,
+.workspace-content,
+.workspace-content > * {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.app-page-main :is(.flex, .grid) {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.app-page-main :is(.flex, .grid) > * {
+  min-width: 0;
+}
+
+.app-page-main :is(input, select, textarea, button) {
+  max-width: 100%;
+}
+
+.app-page-main :is(p, td, th) {
+  overflow-wrap: anywhere;
+}
+
+.app-page-main .overflow-x-auto,
+.app-page-main .overflow-auto {
+  max-width: 100%;
+  overscroll-behavior-x: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 620px) {
+  .monitor-period {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .monitor-donut-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+    justify-items: center;
+    gap: 14px;
+  }
+
+  .monitor-donut-legend {
+    width: 100%;
+  }
+
+  .monitor-donut-legend > div {
+    grid-template-columns: minmax(0, 1fr) auto 30px;
+  }
+
+  .app-page-main .monitor-heading,
+  .app-page-main .monitor-period,
+  .app-page-main .monitor-period label {
+    width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-page-main * {
+    scroll-behavior: auto !important;
+  }
+}
