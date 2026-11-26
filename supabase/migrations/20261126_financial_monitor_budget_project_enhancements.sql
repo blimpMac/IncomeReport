@@ -173,7 +173,8 @@ with refs as (
     project_name, materials_budget, labor_budget, overhead_budget, total_cost_budget,
     contract_value, construction_classification
   from public.income_reference_projects
-  where coalesce(nullif(sof_base,''),nullif(sof_key,'')) is not null
+  where p_company = 'Greenlight Power Inc.'
+    and coalesce(nullif(sof_base,''),nullif(sof_key,'')) is not null
   order by coalesce(nullif(sof_base,''),nullif(sof_key,'')),source_updated_at desc,id desc
 ), actuals as (
   select coalesce(nullif(sof_base,''),nullif(sof_key,'')) pkey,
