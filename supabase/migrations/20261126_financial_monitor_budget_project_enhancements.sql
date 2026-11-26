@@ -184,7 +184,7 @@ with refs as (
   where company=p_company and coalesce(nullif(sof_base,''),nullif(sof_key,'')) is not null
   group by coalesce(nullif(sof_base,''),nullif(sof_key,''))
 )
-select r.pkey,r.project_name,a.division,r.construction_classification,
+select r.pkey,r.project_name,r.pkey,a.division,r.construction_classification,
   coalesce(r.contract_value,0),coalesce(r.materials_budget,0),coalesce(r.labor_budget,0),
   coalesce(r.overhead_budget,0),coalesce(r.total_cost_budget,0),coalesce(a.actual_cost,0),
   coalesce(a.transaction_count,0)
