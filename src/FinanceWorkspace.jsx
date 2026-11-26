@@ -161,7 +161,7 @@ function dateInputValue(date = new Date()) {
   const y = date.getFullYear()
   const m = String(date.getMonth() + 1).padStart(2, '0')
   const d = String(date.getDate()).padStart(2, '0')
-  return \`\${y}-\${m}-\${d}\`
+  return \`${y}-${m}-${d}\`
 }
 
 function dateMinusDays(value, days) {
@@ -185,7 +185,7 @@ function ProjectBars({ budget, actual }) {
   return <div className="space-y-3">
     {[{ label: 'Budget', value: Number(budget || 0), color: '#94a3b8' }, { label: 'Actual cost', value: Number(actual || 0), color: '#16876f' }].map(item => <div key={item.label}>
       <div className="mb-1 flex items-center justify-between gap-3 text-xs"><span className="font-medium text-slate-600">{item.label}</span><b className="tabular-nums text-slate-800">{money(item.value)}</b></div>
-      <div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: \`\${Math.max(item.value > 0 ? 1 : 0, item.value / max * 100)}%\`, background: item.color }} /></div>
+      <div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: \`${Math.max(item.value > 0 ? 1 : 0, item.value / max * 100)}%\`, background: item.color }} /></div>
     </div>)}
   </div>
 }
@@ -196,7 +196,7 @@ function ProjectAnalysis() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const startDate = useMemo(() => dateMinusDays(selectedDate, 14), [selectedDate])
-  const rangeLabel = \`\${dateLabel(startDate)} – \${dateLabel(selectedDate)}\`
+  const rangeLabel = \`${dateLabel(startDate)} – ${dateLabel(selectedDate)}\`
 
   useEffect(() => {
     if (!selectedDate || !startDate) return
@@ -322,7 +322,7 @@ function ProjectAnalysis() {
       <Metric label="Budget variance" value={variance == null ? '—' : money(variance)} note={variance == null ? 'No project cost budgets mapped' : variance >= 0 ? 'Remaining budget' : 'Over budget'} tone={variance != null && variance < 0 ? 'red' : 'green'} />
     </div>
     {loading ? <div className="rounded-xl border border-emerald-100 bg-white p-8 text-center text-sm text-slate-500">Loading project activity…</div> : <div className="space-y-4">
-      {projects.length > 0 && <Card title="Portfolio cost vs budget" note={\`Actual project costs compared with mapped total cost budgets · \${rangeLabel}\`}>
+      {projects.length > 0 && <Card title="Portfolio cost vs budget" note={\`Actual project costs compared with mapped total cost budgets · ${rangeLabel}\`}>
         <ProjectBars budget={totals.budget} actual={totals.actual} />
         <div className="mt-4 grid gap-3 text-xs text-slate-500 sm:grid-cols-3"><span>Revenue <b className="text-slate-800">{money(totals.revenue)}</b></span><span>COGS <b className="text-slate-800">{money(totals.cogs)}</b></span><span>Projects <b className="text-slate-800">{number(projects.length)}</b></span></div>
       </Card>}
@@ -334,18 +334,18 @@ function ProjectAnalysis() {
         {category.projects.length ? <div className="divide-y divide-slate-100">{[...category.projects].sort((a, b) => a.label.localeCompare(b.label)).map(project => <details key={project.key} className="group">
           <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-4 hover:bg-slate-50 [&::-webkit-details-marker]:hidden">
             <div className="flex min-w-0 items-center gap-3"><span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-emerald-50 text-emerald-700 transition-transform group-open:rotate-90">›</span><div className="min-w-0"><b className="block truncate text-sm text-slate-800">{project.label}</b><span className="text-xs text-slate-500">SOF {project.key} · {number(project.transactionCount)} transactions</span></div></div>
-            <div className="grid grid-cols-2 gap-x-5 gap-y-1 text-right text-xs sm:grid-cols-4"><span><b className="block text-slate-800">{money(project.revenue)}</b>Revenue</span><span><b className="block text-slate-800">{money(project.actual)}</b>Actual cost</span><span><b className="block text-slate-800">{money(project.cogs)}</b>COGS</span><span><b className={\`block \${project.variance != null && project.variance < 0 ? 'text-rose-700' : 'text-emerald-700'}\`}>{project.variance == null ? '—' : money(project.variance)}</b>Variance</span></div>
+            <div className="grid grid-cols-2 gap-x-5 gap-y-1 text-right text-xs sm:grid-cols-4"><span><b className="block text-slate-800">{money(project.revenue)}</b>Revenue</span><span><b className="block text-slate-800">{money(project.actual)}</b>Actual cost</span><span><b className="block text-slate-800">{money(project.cogs)}</b>COGS</span><span><b className={\`block ${project.variance != null && project.variance < 0 ? 'text-rose-700' : 'text-emerald-700'}\`}>{project.variance == null ? '—' : money(project.variance)}</b>Variance</span></div>
           </summary>
           <div className="grid gap-4 border-t border-slate-100 bg-slate-50/60 p-4 lg:grid-cols-2">
             <div className="space-y-4">
-              <div className="grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-xs text-slate-500">Actual project cost</p><b className="mt-1 block text-lg text-slate-900">{money(project.actual)}</b></div><div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-xs text-slate-500">Budget variance</p><b className={\`mt-1 block text-lg \${project.variance != null && project.variance < 0 ? 'text-rose-700' : 'text-emerald-700'}\`}>{project.variance == null ? 'No budget' : money(project.variance)}</b><p className="mt-1 text-[11px] text-slate-400">{project.variance == null ? 'No mapped budget available' : project.variance >= 0 ? 'Under budget' : 'Over budget'}</p></div></div>
+              <div className="grid gap-3 sm:grid-cols-2"><div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-xs text-slate-500">Actual project cost</p><b className="mt-1 block text-lg text-slate-900">{money(project.actual)}</b></div><div className="rounded-xl border border-slate-200 bg-white p-3"><p className="text-xs text-slate-500">Budget variance</p><b className={\`mt-1 block text-lg ${project.variance != null && project.variance < 0 ? 'text-rose-700' : 'text-emerald-700'}\`}>{project.variance == null ? 'No budget' : money(project.variance)}</b><p className="mt-1 text-[11px] text-slate-400">{project.variance == null ? 'No mapped budget available' : project.variance >= 0 ? 'Under budget' : 'Over budget'}</p></div></div>
               <div className="rounded-xl border border-slate-200 bg-white p-4"><h3 className="mb-3 text-sm font-semibold text-slate-800">Budget vs actual</h3><ProjectBars budget={project.budget} actual={project.actual} /></div>
               <div className="rounded-xl border border-slate-200 bg-white p-4"><h3 className="mb-3 text-sm font-semibold text-slate-800">Cost breakdown</h3>
-                {[['Materials', project.materials], ['Labor', project.labor], ['Overhead', project.overhead], ['Other / unmapped', project.other]].map(([label, value], index) => <div key={label} className="mb-3 last:mb-0"><div className="mb-1 flex justify-between gap-3 text-xs"><span className="text-slate-600">{label}</span><b className="text-slate-800">{money(value)}</b></div><div className="h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full" style={{ width: \`\${project.actual > 0 ? Math.max(0, Number(value) / project.actual * 100) : 0}%\`, background: ['#16876f', '#397da3', '#d7973e', '#bd6670'][index] }} /></div></div>)}
+                {[['Materials', project.materials], ['Labor', project.labor], ['Overhead', project.overhead], ['Other / unmapped', project.other]].map(([label, value], index) => <div key={label} className="mb-3 last:mb-0"><div className="mb-1 flex justify-between gap-3 text-xs"><span className="text-slate-600">{label}</span><b className="text-slate-800">{money(value)}</b></div><div className="h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full" style={{ width: \`${project.actual > 0 ? Math.max(0, Number(value) / project.actual * 100) : 0}%\`, background: ['#16876f', '#397da3', '#d7973e', '#bd6670'][index] }} /></div></div>)}
               </div>
             </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-4"><h3 className="mb-3 text-sm font-semibold text-slate-800">Cost by QuickBooks account</h3>{project.accounts.length ? <div className="space-y-3">{project.accounts.slice(0, 8).map(account => <div key={account.account}><div className="mb-1 flex justify-between gap-3 text-xs"><span className="min-w-0 truncate text-slate-600">{account.account}</span><b className="shrink-0 text-slate-800">{money(account.value)}</b></div><div className="h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-indigo-500" style={{ width: \`\${project.actual > 0 ? Math.max(0, account.value / project.actual * 100) : 0}%\` }} /></div></div>)}</div> : <p className="text-sm text-slate-500">No cost transactions in this date range.</p>}
-              <div className="mt-5 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2"><div><p className="text-xs text-slate-500">Gross profit / (loss)</p><b className={\`mt-1 block text-base \${project.grossProfit < 0 ? 'text-rose-700' : 'text-emerald-700'}\`}>{money(project.grossProfit)}</b></div><div><p className="text-xs text-slate-500">Gross margin</p><b className="mt-1 block text-base text-slate-900">{project.margin == null ? '—' : \`\${project.margin.toFixed(1)}%\`}</b></div></div>
+            <div className="rounded-xl border border-slate-200 bg-white p-4"><h3 className="mb-3 text-sm font-semibold text-slate-800">Cost by QuickBooks account</h3>{project.accounts.length ? <div className="space-y-3">{project.accounts.slice(0, 8).map(account => <div key={account.account}><div className="mb-1 flex justify-between gap-3 text-xs"><span className="min-w-0 truncate text-slate-600">{account.account}</span><b className="shrink-0 text-slate-800">{money(account.value)}</b></div><div className="h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-indigo-500" style={{ width: \`${project.actual > 0 ? Math.max(0, account.value / project.actual * 100) : 0}%\` }} /></div></div>)}</div> : <p className="text-sm text-slate-500">No cost transactions in this date range.</p>}
+              <div className="mt-5 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2"><div><p className="text-xs text-slate-500">Gross profit / (loss)</p><b className={\`mt-1 block text-base ${project.grossProfit < 0 ? 'text-rose-700' : 'text-emerald-700'}\`}>{money(project.grossProfit)}</b></div><div><p className="text-xs text-slate-500">Gross margin</p><b className="mt-1 block text-base text-slate-900">{project.margin == null ? '—' : \`${project.margin.toFixed(1)}%\`}</b></div></div>
             </div>
           </div>
         </details>)}</div> : <div className="px-4 py-4 text-xs text-slate-500">No project transactions recorded in this 14-day window.</div>}
