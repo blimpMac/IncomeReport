@@ -183,7 +183,7 @@ function Remarks({ report, sofRows, scope }) {
 
 function Transactions({ rows, scope }) {
   return <Card>
-    <div className="border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-semibold">Recent transactions</h2><p className="mt-1 text-xs text-slate-500">Latest QuickBooks activity · {scope}</p></div>
+    <div className="border-b border-slate-100 px-4 py-3"><h2 className="text-sm font-semibold">Recent transactions</h2><p className="mt-1 text-xs text-slate-500">Latest QuickBooks activity · {scope}{company !== 'all' ? ` · ${company === 'greenlight' ? 'Greenlight Power Inc.' : 'Gemcor (Greenmetal Electric)'}` : ''}</p></div>
     <div className="w-full max-w-full overflow-x-auto"><table className="w-full min-w-[780px] text-left text-sm">
       <thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr><th className="px-3 py-3">Date</th><th className="px-3 py-3">SOF</th><th className="px-3 py-3">Type</th><th className="px-3 py-3">Account</th><th className="whitespace-nowrap px-3 py-3 text-right">Debit</th><th className="whitespace-nowrap px-3 py-3 text-right">Credit</th></tr></thead>
       <tbody className="divide-y divide-slate-100">{rows.map(row => <tr key={row.id}><td className="whitespace-nowrap px-3 py-3">{shortDate(row.transaction_date)}</td><td className="px-3 py-3 font-medium">{displaySof(row)}</td><td className="px-3 py-3">{row.type || '—'}</td><td className="px-3 py-3">{row.account || '—'}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.debit)}</td><td className="whitespace-nowrap px-3 py-3 text-right tabular-nums">{money(row.credit)}</td></tr>)}</tbody>
@@ -194,6 +194,7 @@ function Transactions({ rows, scope }) {
 export default function DashboardPage() {
   const [month, setMonth] = useState('all')
   const [sof, setSof] = useState('all')
+  const [company, setCompany] = useState('all')
   const [report, setReport] = useState(null)
   const [sofRows, setSofRows] = useState([])
   const [months, setMonths] = useState([])
@@ -220,6 +221,8 @@ export default function DashboardPage() {
       const bounds = monthBounds(month)
       if (bounds) query = query.gte('transaction_date', bounds.start).lt('transaction_date', bounds.end)
       if (sof !== 'all') query = query.eq('sof_base', sof)
+      if (company === 'greenlight') query = query.in('name', ['Greenlight Power Inc.', 'GREENLIGHT POWER, INC'])
+      if (company === 'gemcor') query = query.in('name', ['Greenmetal Electric Manufacturing Corp.', 'GREENMETAL ELECTRIC MFG CORP.'])
 
       const [rpcResult, txResult] = await Promise.all([rpcPromise, query])
       if (cancelled) return
@@ -237,7 +240,7 @@ export default function DashboardPage() {
     }
     load()
     return () => { cancelled = true }
-  }, [month, sof])
+  }, [month, sof, company])
 
   const sofOptions = useMemo(() => (sofs || []).map(item => ({
     ...item,
@@ -256,6 +259,7 @@ export default function DashboardPage() {
       <div className="flex w-full min-w-0 flex-col gap-2 sm:flex-row xl:w-auto">
         <FilterSelect label="Month" value={month} onChange={setMonth}><option value="all">ALL Months</option>{months.map(value => <option key={value} value={value}>{monthLabel(value)}</option>)}</FilterSelect>
         <FilterSelect label="SOF" value={sof} onChange={setSof} minWidth="310px"><option value="all">ALL SOFs</option>{sofOptions.map(item => <option key={item.sof_base} value={item.sof_base}>SOF {item.sof_base}{item.project ? ` — ${item.project}` : ''}</option>)}</FilterSelect>
+        <FilterSelect label="Company transactions" value={company} onChange={setCompany} minWidth="220px"><option value="all">All companies</option><option value="greenlight">Greenlight Power Inc.</option><option value="gemcor">Gemcor (Greenmetal Electric)</option></FilterSelect>
         <button onClick={() => go('upload')} className="self-end rounded-lg bg-emerald-700 px-3.5 py-2.5 text-sm font-medium text-white hover:bg-emerald-800">Upload file</button>
       </div>
     </div>
