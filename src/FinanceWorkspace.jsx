@@ -507,6 +507,7 @@ function BudgetDashboard() {
       let query = supabase.from('income_all_transactions')
         .select('id,transaction_date,type,num,name,memo,account,debit,credit,sof_base,sof_key,company')
         .eq('company', company)
+        .neq('category', 'Revenue')
         .in('sof_base', keys)
         .order('transaction_date', {ascending:false})
         .order('id', {ascending:false})
@@ -546,7 +547,7 @@ function BudgetDashboard() {
       for(let offset=0;;offset+=batchSize){
         let query=supabase.from('income_all_transactions')
           .select('id,company,division,transaction_date,type,num,name,memo,account,debit,credit,sof_base,sof_key')
-          .eq('company',company).in('sof_base',keys)
+          .eq('company',company).neq('category','Revenue').in('sof_base',keys)
           .gte('transaction_date',range.from).lte('transaction_date',range.to)
           .order('transaction_date',{ascending:true}).order('id',{ascending:true})
           .range(offset,offset+batchSize-1)
@@ -566,7 +567,7 @@ function BudgetDashboard() {
       ]
       XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet(summary),'Budget Summary')
       const grouped=new Map()
-      for(const row of all){const key=String(row.transaction_date||'').slice(0,7)||'Undated';if(!grouped.has(key))grouped.set(key,[]);const p=projectMap.get(String(row.sof_base||row.sof_key||''));const amount=Math.abs(Number(row.debit||0)-Number(row.credit||0));grouped.get(key).push([row.transaction_date,row.type,row.num,row.name,row.memo||row.account,amount,'','',amount,p?Number(p.actual_cost||0):''])}
+      for(const row of all){const key=String(row.transaction_date||'').slice(0,7)||'Undated';if(!grouped.has(key))grouped.set(key,[]);const p=projectMap.get(String(row.sof_base||row.sof_key||''));const amount=Number(row.debit||0)-Number(row.credit||0);grouped.get(key).push([row.transaction_date,row.type,row.num,row.name,row.memo||row.account,amount,'','',amount,p?Number(p.actual_cost||0):''])}
       const headers=['Date','Type','Ref. No.','Entity','Particulars','Amount','VAT','Net','Total Amount','Project Cost']
       for(const [month,items] of grouped){XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet([headers,...items]),month.slice(0,31))}
       const filename=`budget-monitor-${company==='Greenlight Power Inc.'?'greenlight':'gemcor'}-${range.from}-to-${range.to}.xlsx`
