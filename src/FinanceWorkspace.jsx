@@ -56,14 +56,21 @@ function useMonths() {
     // just to populate the Year/Month selectors.
     const loadMonths = async () => {
       try {
-        const { data, error: queryError } = await supabase.from('income_qb_uploads')
-          .select('detected_min_date,detected_max_date,status')
-          .eq('status', 'ready')
-          .limit(200)
+        const uploads = []
+        const pageSize = 1000
+        for (let offset = 0; ; offset += pageSize) {
+          const { data, error: queryError } = await supabase.from('income_qb_uploads')
+            .select('detected_min_date,detected_max_date,status')
+            .eq('status', 'ready')
+            .order('created_at', { ascending: true })
+            .range(offset, offset + pageSize - 1)
+          if (queryError) throw queryError
+          uploads.push(...(data || []))
+          if (!data || data.length < pageSize) break
+        }
         if (!active) return
-        if (queryError) { setError(queryError.message); return }
         const available = new Set()
-        for (const upload of data || []) {
+        for (const upload of uploads) {
           const start = upload.detected_min_date?.slice(0, 7)
           const end = upload.detected_max_date?.slice(0, 7)
           if (!start || !end) continue
@@ -98,7 +105,7 @@ function MainDashboard() {
   // "All years" includes every available reporting month while keeping the
   // month selector and the month-specific KPI cards usable.
   const yearMonths = useMemo(() => year === 'all' ? months : months.filter(value => value.startsWith(year)), [months, year])
-  useEffect(() => { if (!yearMonths.includes(month)) setMonth(yearMonths[0] || '') }, [yearMonths, month])
+  useEffect(() => { if (month !== '__year_total__' && !yearMonths.includes(month)) setMonth(yearMonths[0] || '') }, [yearMonths, month])
   const selectedMonths = useMemo(() => [...yearMonths].reverse(), [yearMonths])
   const [reports, setReports] = useState([])
   const [sofRows, setSofRows] = useState([])
@@ -134,7 +141,7 @@ function MainDashboard() {
   }, [selectedMonths])
   useEffect(() => {
     let active = true
-    if (!month) { setSofRows([]); setCostAccounts([]); return }
+    if (!month || month === '__year_total__') { setSofRows([]); setCostAccounts([]); return }
     Promise.all([
       supabase.rpc('income_monthly_sof_summary', { p_month: `${month}-01` }),
       supabase.rpc('income_monthly_cost_accounts', { p_month: `${month}-01` }),
@@ -148,7 +155,13 @@ function MainDashboard() {
     return () => { active = false }
   }, [month])
   const visibleReports = year === 'all' ? reports : reports.filter(row => row.month.startsWith(year))
-  const selected = reports.find(row => row.month === month)
+  const annualRows = visibleReports
+  const annualTotal = month === '__year_total__' ? annualRows.reduce((total, row) => {
+    for (const key of ['revenue', 'total_cost', 'gross_profit', 'transaction_count', 'unassigned_count', 'materials', 'labor', 'overhead', 'other_cost']) total[key] = Number(total[key] || 0) + Number(row[key] || 0)
+    return total
+  }, { revenue: 0, total_cost: 0, gross_profit: 0, transaction_count: 0, unassigned_count: 0, materials: 0, labor: 0, overhead: 0, other_cost: 0 }) : null
+  if (annualTotal) annualTotal.margin_pct = annualTotal.revenue ? annualTotal.gross_profit / annualTotal.revenue * 100 : 0
+  const selected = annualTotal || reports.find(row => row.month === month)
   const max = Math.max(1, ...visibleReports.flatMap(row => [Number(row.revenue || 0), Number(row.total_cost || 0)]))
   const problem = error || monthsError
   const costMix = [['Materials', selected?.materials], ['Labor', selected?.labor], ['Overhead', selected?.overhead], ['Other', selected?.other_cost]]
@@ -163,10 +176,10 @@ function MainDashboard() {
     return top
   }, [sofRows])
   const riskProjects = [...sofRows].filter(row => Number(row.gross_profit || 0) < 0).sort((a, b) => Number(a.gross_profit || 0) - Number(b.gross_profit || 0)).slice(0, 5)
-  return <Shell><div className="monitor-heading"><div><p className="monitor-eyebrow">FINANCIAL OPERATIONS</p><h1>Financial monitor</h1><p>Track revenue, delivery costs, and project margin by reporting period.</p></div><div className="monitor-period"><label>Year<select value={year} onChange={event => setYear(event.target.value)}><option value="all">All years</option>{years.map(value => <option key={value} value={value}>{value}</option>)}</select></label><label>Month<select value={month} onChange={event => setMonth(event.target.value)}>{yearMonths.map(value => <option key={value} value={value}>{monthName(value)}</option>)}</select></label></div></div>
+  return <Shell><div className="monitor-heading"><div><p className="monitor-eyebrow">FINANCIAL OPERATIONS</p><h1>Financial monitor</h1><p>Track revenue, delivery costs, and project margin by reporting period.</p></div><div className="monitor-period"><label>Year<select value={year} onChange={event => setYear(event.target.value)}><option value="all">All years</option>{years.map(value => <option key={value} value={value}>{value}</option>)}</select></label><label>Period<select value={month} onChange={event => setMonth(event.target.value)}><option value="__year_total__">{year === 'all' ? 'All years total' : `${year} total`}</option>{yearMonths.map(value => <option key={value} value={value}>{monthName(value)}</option>)}</select></label></div></div>
     {problem && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{problem}</div>}
     <div className="monitor-metrics">
-      <Metric label="Recognized revenue" value={selected ? money(selected.revenue) : '—'} note={month ? monthName(month) : 'No reports available'} tone="green" />
+      <Metric label="Recognized revenue" value={selected ? money(selected.revenue) : '—'} note={month === '__year_total__' ? (year === 'all' ? 'All available years' : `${year} full-year total`) : month ? monthName(month) : 'No reports available'} tone="green" />
       <Metric label="Total delivery cost" value={selected ? money(selected.total_cost) : '—'} note={`${money(selected?.materials)} materials · ${money(selected?.labor)} labor`} tone="blue" />
       <Metric label="Gross profit / (loss)" value={selected ? money(selected.gross_profit) : '—'} note={selected ? `${Number(selected.margin_pct || 0).toFixed(1)}% gross margin` : 'No report data'} tone={Number(selected?.gross_profit || 0) < 0 ? 'red' : 'green'} />
       <Metric label="Transactions" value={selected ? number(selected.transaction_count) : '—'} note={`${number(selected?.unassigned_count)} without SOF mapping`} tone={Number(selected?.unassigned_count || 0) ? 'red' : 'blue'} />
