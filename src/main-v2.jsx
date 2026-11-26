@@ -99,7 +99,7 @@ function RootRouter() {
 
   const page = hash.replace(/^#\/?/, '')
   let content
-  if (['dashboard', 'projects', 'transactions'].includes(page)) content = <FinanceWorkspace />
+  if (['dashboard', 'projects', 'transactions', 'budget'].includes(page)) content = <FinanceWorkspace />
   else if (page === 'sof') content = <><SofActions /><SofReport /></>
   else if (page === 'costcompare') content = <CostComparisonPage />
   else if (page === 'upload') content = <RouteShell active="upload"><DataUpload /></RouteShell>
