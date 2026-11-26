@@ -240,7 +240,7 @@ function ProjectAnalysis() {
         const pageSize = 1000
         for (let offset = 0; ; offset += pageSize) {
           const { data, error: txError } = await supabase.from('income_transactions_ready')
-            .select('transaction_date,division,project_group,sof_label,sof_key,sof_base,category,debit,credit,account')
+            .select('id,transaction_date,division,project_group,sof_label,sof_key,sof_base,category,debit,credit,account,type,num,name,memo')
             .gte('transaction_date', startDate)
             .lte('transaction_date', selectedDate)
             .order('transaction_date', { ascending: true })
@@ -267,7 +267,7 @@ function ProjectAnalysis() {
             budget: Number(ref?.total_cost_budget || 0),
             contractValue: Number(ref?.final_contract_value || ref?.contract_value || 0),
             revenue: 0, materials: 0, labor: 0, overhead: 0, other: 0, transactionCount: 0,
-            accounts: new Map(),
+            accounts: new Map(), transactions: [],
           }
           const debit = Number(tx.debit || 0)
           const credit = Number(tx.credit || 0)
@@ -282,6 +282,17 @@ function ProjectAnalysis() {
             project.accounts.set(account, (project.accounts.get(account) || 0) + cost)
           }
           project.transactionCount += 1
+          project.transactions.push({
+            id: tx.id,
+            date: tx.transaction_date,
+            reference: tx.num || tx.sof_label || tx.sof_base || '—',
+            description: tx.name || tx.memo || tx.type || tx.account || 'QuickBooks transaction',
+            type: tx.type || '—',
+            account: tx.account || '—',
+            category: tx.category || '—',
+            revenue: tx.category === 'Revenue' ? credit - debit : 0,
+            cost: tx.category === 'Revenue' ? 0 : debit - credit,
+          })
           grouped.set(key, project)
         }
         const rows = [...grouped.values()].map(project => {
@@ -294,6 +305,7 @@ function ProjectAnalysis() {
             grossProfit: project.revenue - actual,
             margin: project.revenue > 0 ? (project.revenue - actual) / project.revenue * 100 : null,
             accounts: [...project.accounts.entries()].map(([account, value]) => ({ account, value })).sort((a, b) => Math.abs(b.value) - Math.abs(a.value)),
+            transactions: [...project.transactions].sort((a, b) => String(b.date || '').localeCompare(String(a.date || ''))),
           }
         })
         setProjects(rows)
@@ -370,6 +382,7 @@ function ProjectAnalysis() {
             </div>
             <div className="rounded-xl border border-slate-200 bg-white p-4"><h3 className="mb-3 text-sm font-semibold text-slate-800">Cost by QuickBooks account</h3>{project.accounts.length ? <div className="space-y-3">{project.accounts.slice(0, 8).map(account => <div key={account.account}><div className="mb-1 flex justify-between gap-3 text-xs"><span className="min-w-0 truncate text-slate-600">{account.account}</span><b className="shrink-0 text-slate-800">{money(account.value)}</b></div><div className="h-2 rounded-full bg-slate-100"><div className="h-2 rounded-full bg-indigo-500" style={{ width: `${project.actual > 0 ? Math.max(0, account.value / project.actual * 100) : 0}%` }} /></div></div>)}</div> : <p className="text-sm text-slate-500">No cost transactions in this date range.</p>}
               <div className="mt-5 grid gap-3 border-t border-slate-100 pt-4 sm:grid-cols-2"><div><p className="text-xs text-slate-500">Gross profit / (loss)</p><b className={`mt-1 block text-base ${project.grossProfit < 0 ? 'text-rose-700' : 'text-emerald-700'}`}>{money(project.grossProfit)}</b></div><div><p className="text-xs text-slate-500">Gross margin</p><b className="mt-1 block text-base text-slate-900">{project.margin == null ? '—' : `${project.margin.toFixed(1)}%`}</b></div></div>
+              <details className="mt-5 rounded-xl border border-slate-200 bg-white" open><summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-slate-800 [&::-webkit-details-marker]:hidden"><span>Actual transactions</span><span className="text-xs font-medium text-slate-500">{number(project.transactions.length)} records · dated</span></summary><div className="max-h-[420px] overflow-auto border-t border-slate-100"><table className="w-full min-w-[760px] text-left text-xs"><thead className="sticky top-0 bg-slate-50 text-slate-500"><tr>{['Actual date','Description / payee','QB account','Type','Revenue','Cost'].map(label => <th key={label} className="whitespace-nowrap px-3 py-2 font-semibold">{label}</th>)}</tr></thead><tbody className="divide-y divide-slate-100">{project.transactions.map((tx,index) => <tr key={tx.id || `${tx.date}-${tx.reference}-${index}`}><td className="whitespace-nowrap px-3 py-2 font-medium text-slate-700">{dateLabel(tx.date)}</td><td className="max-w-[260px] px-3 py-2"><div className="truncate text-slate-700" title={tx.description}>{tx.description}</div><div className="text-[10px] text-slate-400">{tx.reference} · {tx.category}</div></td><td className="max-w-[190px] truncate px-3 py-2 text-slate-600" title={tx.account}>{tx.account}</td><td className="whitespace-nowrap px-3 py-2 text-slate-500">{tx.type}</td><td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{tx.revenue ? money(tx.revenue) : '—'}</td><td className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{tx.cost ? money(tx.cost) : '—'}</td></tr>)}</tbody></table>{!project.transactions.length && <p className="p-4 text-sm text-slate-500">No transaction details available for this project.</p>}</div></details>
             </div>
           </div>
         </details>)}</div> : <div className="px-4 py-4 text-xs text-slate-500">No project transactions recorded in this 14-day window.</div>}
