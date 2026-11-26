@@ -212,7 +212,7 @@ export async function parseQuickBooksFile(file) {
   return parseRows(rows, file.name, extension)
 }
 
-export async function uploadQuickBooks(parsed, onProgress = () => {}) {
+export async function uploadQuickBooks(parsed, onProgress = () => {}, company = 'Greenlight Power Inc.') {
   if (!supabase) throw new Error('Supabase environment variables are missing.')
   const begin = await supabase.rpc('income_begin_qb_upload', {
     p_file_name: parsed.fileName,
@@ -221,6 +221,7 @@ export async function uploadQuickBooks(parsed, onProgress = () => {}) {
     p_report_date: parsed.reportDate,
     p_min_date: parsed.minDate,
     p_max_date: parsed.maxDate,
+    p_company: company,
   })
   if (begin.error) throw begin.error
   const uploadId = begin.data
