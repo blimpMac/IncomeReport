@@ -456,7 +456,7 @@ function ProjectAnalysis() {
 function BudgetDashboard() {
   const { months } = useMonths()
   const years = useMemo(() => [...new Set(months.map(value => value.slice(0,4)))].sort(), [months])
-  const [company, setCompany] = useState('Greenlight Power Inc.')
+  const company = 'Greenlight Power Inc.'
   const [projects, setProjects] = useState([])
   const [rows, setRows] = useState([])
   const [offset, setOffset] = useState(0)
@@ -465,6 +465,7 @@ function BudgetDashboard() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [error, setError] = useState('')
   const [exporting, setExporting] = useState(false)
+  const [exportSuccess, setExportSuccess] = useState('')
   const [exportType, setExportType] = useState('year')
   const [exportYear, setExportYear] = useState(years.includes(String(new Date().getFullYear())) ? String(new Date().getFullYear()) : years.at(-1) || '')
   const [exportMonth, setExportMonth] = useState(months[0] || '')
@@ -537,7 +538,7 @@ function BudgetDashboard() {
     const range=coverage()
     if(!range.from||!range.to) {setError('Select a valid export period before exporting.');return}
     if(range.from>range.to) {setError('Start date must be on or before end date.');return}
-    setExporting(true);setError('')
+    setExporting(true);setError('');setExportSuccess('')
     try {
       const keys=projects.map(project=>String(project.project_key)).filter(Boolean)
       const all=[]
@@ -570,16 +571,17 @@ function BudgetDashboard() {
       for(const [month,items] of grouped){XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet([headers,...items]),month.slice(0,31))}
       const filename=`budget-monitor-${company==='Greenlight Power Inc.'?'greenlight':'gemcor'}-${range.from}-to-${range.to}.xlsx`
       XLSX.writeFile(workbook,filename)
+      setExportSuccess(`${number(all.length)} budget-linked transactions exported across ${grouped.size} monthly worksheets.`)
     } catch(e){setError(e?.message||'Unable to export budget workbook.')}
     finally{setExporting(false)}
   }
 
   return <Shell>
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div><p className="monitor-eyebrow">FINANCIAL OPERATIONS</p><h1 className="text-2xl font-semibold text-slate-950">Budget Dashboard</h1><p className="mt-1 text-sm text-slate-500">Monitor allocated project budgets against actual QuickBooks costs.</p></div>
-      <label className="text-xs font-semibold text-slate-600">Company<select value={company} onChange={e=>setCompany(e.target.value)} className="mt-1 block rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm"><option>Greenlight Power Inc.</option><option>Gemcor (Greenmetal Electric)</option></select></label>
+      <div><p className="monitor-eyebrow">FINANCIAL OPERATIONS</p><h1 className="text-2xl font-semibold text-slate-950">Budget Dashboard</h1><p className="mt-1 text-sm text-slate-500">Monitor allocated project budgets against actual QuickBooks costs.</p><p className="mt-1 text-xs text-slate-400">Budget source: Greenlight Power Inc. project reference data.</p></div>
     </div>
     {error&&<div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
+    {exportSuccess&&<div role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{exportSuccess}</div>}
     <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
       <Metric label="Total allocated budget" value={money(allocated)} note={`${number(projects.length)} projects with budget data`} tone="green"/>
       <Metric label="Total actual expenses" value={money(actual)} note="Matched to budgeted SOFs" tone="blue"/>
