@@ -478,6 +478,22 @@ function BudgetDashboard() {
     if (months.length && !months.includes(exportMonth)) setExportMonth(months[0])
   }, [years, months, exportYear, exportMonth])
 
+  // The selected coverage controls both the visible transaction ledger and XLSX export.
+  // Keep the end date inclusive so the final day of a selected month is not omitted.
+  const selectedRange = useMemo(() => {
+    if (exportType === 'year') return {
+      from: exportYear ? `${exportYear}-01-01` : '',
+      to: exportYear ? `${exportYear}-12-31` : '',
+    }
+    if (exportType === 'month') {
+      if (!exportMonth) return { from: '', to: '' }
+      const [year, month] = exportMonth.split('-').map(Number)
+      const lastDay = new Date(Date.UTC(year, month, 0)).toISOString().slice(0, 10)
+      return { from: `${exportMonth}-01`, to: lastDay }
+    }
+    return { from: startDate, to: endDate }
+  }, [exportType, exportYear, exportMonth, startDate, endDate])
+
   const projectMap = useMemo(() => new Map(projects.flatMap(project => [[String(project.project_key), project], ...(project.matched_sof_base ? [[String(project.matched_sof_base), project]] : [])])), [projects])
   const allocated = projects.reduce((sum, project) => sum + Number(project.allocated_budget || 0), 0)
   const actual = projects.reduce((sum, project) => sum + Number(project.actual_cost || 0), 0)
@@ -510,6 +526,8 @@ function BudgetDashboard() {
         .eq('company', company)
         .neq('category', 'Revenue')
         .or([exactKeys.length ? `sof_key.in.(${exactKeys.join(',')})` : '', baseKeys.length ? `sof_base.in.(${baseKeys.join(',')})` : ''].filter(Boolean).join(','))
+        .gte('transaction_date', selectedRange.from)
+        .lte('transaction_date', selectedRange.to)
         .order('transaction_date', {ascending:false})
         .order('id', {ascending:false})
         .range(pageOffset,pageOffset+pageSize)
@@ -523,17 +541,20 @@ function BudgetDashboard() {
     finally { setLoadingMore(false) }
   }
 
-  useEffect(() => { setRows([]);setOffset(0);setHasMore(false);loadRows(true) }, [projects, company])
-
-  const coverage = () => {
-    if (exportType === 'year') return {from:exportYear ? `${exportYear}-01-01` : '',to:exportYear ? `${exportYear}-12-31` : ''}
-    if (exportType === 'month') {
-      if (!exportMonth) return {from:'',to:''}
-      const [y,m]=exportMonth.split('-').map(Number)
-      return {from:`${exportMonth}-01`,to:new Date(Date.UTC(y,m,0)).toISOString().slice(0,10)}
+  useEffect(() => {
+    setRows([])
+    setOffset(0)
+    setHasMore(false)
+    if (!projects.length) return
+    if (!selectedRange.from || !selectedRange.to || selectedRange.from > selectedRange.to) {
+      setError('Select a valid transaction coverage period.')
+      setLoadingMore(false)
+      return
     }
-    return {from:startDate,to:endDate}
-  }
+    loadRows(true)
+  }, [projects, company, selectedRange.from, selectedRange.to])
+
+  const coverage = () => selectedRange
 
   const exportWorkbook = async () => {
     if(exporting) return
@@ -601,11 +622,12 @@ function BudgetDashboard() {
     <Card title="Budget monitoring transactions" note="Spreadsheet-style ledger. VAT and net split are not present in the current QuickBooks transaction schema and are intentionally left blank rather than estimated.">
       <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-          <label className="text-xs font-semibold text-slate-600">Export coverage<select value={exportType} onChange={e=>setExportType(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="year">Per Year</option><option value="month">Per Month</option><option value="range">Customized Date Range</option></select></label>
+          <label className="text-xs font-semibold text-slate-600">Transaction coverage<select value={exportType} onChange={e=>setExportType(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="year">Per Year</option><option value="month">Per Month</option><option value="range">Customized Date Range</option></select></label>
           {exportType==='year'&&<label className="text-xs font-semibold text-slate-600">Year<select value={exportYear} onChange={e=>setExportYear(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">{years.map(y=><option key={y} value={y}>{y}</option>)}</select></label>}
           {exportType==='month'&&<label className="text-xs font-semibold text-slate-600">Month<input type="month" value={exportMonth} onChange={e=>setExportMonth(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"/></label>}
           {exportType==='range'&&<><label className="text-xs font-semibold text-slate-600">Start date<input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"/></label><label className="text-xs font-semibold text-slate-600">End date<input type="date" min={startDate||undefined} value={endDate} onChange={e=>setEndDate(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"/></label></>}
         </div>
+        <p className="text-xs text-slate-500 xl:max-w-[240px]">The selected period filters the transaction table below and is also used for the XLSX export.</p>
         <button type="button" onClick={exportWorkbook} disabled={exporting||loading||!projects.length} className="rounded-lg bg-[#173b68] px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50">{exporting?'Preparing XLSX…':'Export Budget XLSX'}</button>
       </div>
       <div className="overflow-x-auto">
