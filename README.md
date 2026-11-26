@@ -1,62 +1,127 @@
-# E-WORKS Income Report
+# E-WORKS Financial Monitoring & Project Management
 
-Lightweight React + Vite + Tailwind finance dashboard with **Supabase as the permanent source of truth**.
+A React 19 + Vite application for financial monitoring, QuickBooks transaction review, budget tracking, and project profitability analysis. Supabase/PostgreSQL is the application's source of truth, and Vercel is used for hosting.
 
-## Data model
+## What the system provides
 
-The website reads and writes the isolated `income_*` objects in Supabase. Google Sheets is no longer a runtime dependency.
+### Financial monitor
+- Revenue, delivery cost, gross profit/loss, margin, and transaction-count KPIs.
+- Year and month selectors, including all-years and year-total views.
+- Category filtering and monthly revenue-versus-cost trends.
+- Revenue breakdown by SOF and COGS/operating-cost breakdown by category and account.
+- A review list for projects with negative gross profit.
 
-The initial source workbook migration was completed on October 29, 2026 from the E-WORKS REFERENCE DATA workbook. The migration included:
+### Project analysis
+- Analyze projects over all available dates or a selected date range.
+- Review project revenue, actual project cost, budget utilization, variance, and profitability.
+- Expand project rows to inspect their underlying transaction breakdowns.
+- Compare two projects side by side, including revenue, actual cost, allocated budget, budget remaining, gross profit, and profit margin.
 
-- `REFERENCE DATA` — normalized into `income_reference_projects`.
-- `QB FILE` — normalized into `income_qb_uploads` and `income_qb_transactions`.
-- hidden `Sheet1` — preserved as raw legacy/source history in `income_source_rows`.
-- `FORMAT` — intentionally excluded.
+### Budget dashboard
+- Review budget-linked transactions and project spending.
+- Filter by reporting period and available project/category dimensions.
+- Identify budget overruns and compare actual costs against allocated amounts.
+- Export budget transaction data to an Excel workbook.
 
-Migration totals:
+### All transactions
+- Search transaction records by client/entity, SOF reference, memo/description, account, and transaction type.
+- Filter by company, division, category, and transaction coverage (year, month, or custom date range).
+- Expand a transaction to inspect its full memo and available company, division, category, and record-ID details.
+- Save and reuse named filter views in the current browser.
+- Export matching transaction data to CSV. Search and filter criteria are applied to the export as well as the on-screen results.
+- Transaction results are paginated; use the load-more control to retrieve subsequent pages.
 
-- 195 structured reference/project rows.
-- 15,277 structured QuickBooks transactions.
-- 702 raw legacy/header/context rows preserved for audit/history.
-- 16,174 included non-empty source rows in total.
+### Reports and reference data
+- Monthly financial reporting and SOF-level analysis.
+- Project profitability reporting and comparison.
+- QuickBooks upload history and worksheet views.
+- Reference project/budget data used by project analysis and monitoring.
+
+## Navigation
+
+The application is organized into three navigation groups:
+
+| Group | Pages |
+| --- | --- |
+| Overview | Financial monitor, Project analysis, Budget dashboard, All transactions |
+| Reports | Monthly report, SOF analysis, Project profitability |
+| Data | QuickBooks upload, Reference data, QB worksheets |
+
+The navigation menu supports desktop hover/click and touch-friendly toggling on smaller screens. The workspace styling includes responsive layouts, accessible keyboard focus states, consistent form controls, and horizontally scrollable data tables where needed.
+
+## Company-scoped data
+
+QuickBooks uploads and transaction reporting are scoped by company. The database stores the company against each upload and its transactions, and the reporting queries apply the company filter so one company's imported records are not mixed into another company's results.
+
+The current database has company-specific upload handling for Greenlight Power Inc. and Gemcor. Availability of records depends on the uploads that have actually been imported for each company; an empty company ledger is not populated with sample data.
+
+## Data model and source of truth
+
+The website reads and writes the isolated `income_*` objects in Supabase. Google Sheets is not a runtime dependency.
+
+The original source workbook was used for a one-time migration:
+- `REFERENCE DATA` was normalized into `income_reference_projects`.
+- `QB FILE` data was normalized into `income_qb_uploads` and `income_qb_transactions`.
+- The hidden `Sheet1` source/history rows were preserved in `income_source_rows`.
+- `FORMAT` was intentionally excluded.
 
 The raw migration archive is internal and is not exposed to the browser client.
 
-## Upload behavior
+### QuickBooks uploads
+- CSV, XLS, and XLSX QuickBooks exports are parsed in the browser and written to Supabase.
+- Upload batches are tracked with company and report metadata.
+- Upload replacement and transaction ingestion use the database's validated upload workflow.
+- Re-uploading an existing report batch is handled by the upload workflow to avoid duplicate reporting data.
+- Google service-account credentials are not required for routine uploads.
 
-CSV/XLS/XLSX QuickBooks exports are parsed in the browser and written directly to Supabase.
+## Access and security model
 
-Each upload is grouped by the detected report date using the logical batch name `QB M/D/YYYY`. Re-uploading the same report date replaces that Supabase batch through validated database RPCs so monthly reports do not double-count the same dated dataset.
+- The application currently has no application login screen.
+- Supabase Row Level Security (RLS) is enabled for the database objects used by the app.
+- Browser-side reference/reporting access is governed by the configured RLS policies and database grants.
+- QuickBooks upload metadata operations use validated database RPCs; transaction rows are inserted in controlled chunks.
+- Never put a Supabase service-role key or other server secret in frontend code, a committed environment file, or the public repository.
+- Company filters in the interface are intended to scope reporting queries; they do not replace database authorization policies.
 
-## Features
+Because the app is login-free, anyone who can reach the public site may be able to access the data and operations allowed by the active Supabase policies. Review the RLS policies and upload permissions before exposing the site or changing its access model.
 
-- Dashboard backed by migrated Supabase data.
-- QuickBooks CSV/XLS/XLSX import with automatic header, hierarchy, and SOF detection.
-- Monthly end-of-month report with revenue, materials, labor, overhead, gross profit, margin, SOF breakdown, and review remarks.
-- SOF-level lifetime computations matched against Reference Data budgets.
-- Transactions and Reference Data pages with 10-row pagination.
-- Separate pages for Dashboard, QB Upload, Monthly Report, SOF Analysis, Transactions, Reference Data, and QB Worksheets.
-- No application login screen.
-- Minimal responsive UI with compact tables and restrained financial cards.
+## Technology stack
 
-## Access model
-
-The site is intentionally login-free. Anyone who can reach the website can view the finance data exposed by its browser RLS policies and use the enabled QB upload workflow.
-
-Supabase RLS remains enabled. Reference and reporting data are read-only from the browser. QB upload metadata replacement is handled through validated `SECURITY DEFINER` RPCs, while transaction rows are inserted in controlled browser-side chunks. No Supabase service-role key is stored in the frontend or repository.
-
-## Stack
-
-- React 19 + Vite 8
+- React 19
+- Vite 8
 - Tailwind CSS 4
 - Supabase JS / PostgreSQL
-- Papa Parse for CSV
-- SheetJS CE for Excel imports
-- Vercel deployment
+- Papa Parse for CSV parsing
+- SheetJS Community Edition for Excel import/export
+- Vercel for hosting and deployments
 
-## Environment
+## Requirements
 
-The real local environment file is gitignored and is not stored in GitHub. Vercel holds the required values for Production, Preview, and Development.
+- Node.js **22.12 or later**
+- npm
+- Access to the authorized Supabase project
+- Access to the linked Vercel project for pulling environment variables and deployment
+
+## Local development
+
+1. Clone the repository.
+2. Install dependencies.
+3. Create a local environment file using the variables below.
+4. Start the Vite development server.
+
+```bash
+git clone https://github.com/blimpMac/IncomeReport.git
+cd IncomeReport
+npm install
+cp .env.example .env.local
+npm run dev
+```
+
+The Vite development server prints the local URL (normally `http://localhost:5173`).
+
+### Environment variables
+
+Create `.env.local` locally. Do not commit real credentials.
 
 ```env
 VITE_SUPABASE_URL=https://your-project.supabase.co
@@ -64,30 +129,65 @@ VITE_SUPABASE_PUBLISHABLE_KEY=sb_publishable_xxx
 VITE_APP_NAME=E-WORKS Income Report
 ```
 
-After cloning or pulling the repo on a machine authorized for the Vercel project:
+The repository's `.env.example` contains placeholder values. In an authorized Vercel-linked environment, the development environment can be pulled with:
 
 ```bash
-npm install
-npx vercel link --yes
+npx vercel link
 npm run env:pull
-npm run dev
 ```
 
-## Database migrations
+## Available scripts
 
-The repository contains the isolated IncomeReport database migrations under `supabase/migrations/`:
+| Command | Purpose |
+| --- | --- |
+| `npm run dev` | Start the local Vite development server |
+| `npm run build` | Create the production build in `dist/` |
+| `npm run preview` | Preview the production build locally |
+| `npm run env:pull` | Pull Vercel Development environment variables into `.env.local` |
 
-- `20261029_income_report.sql` — base IncomeReport tables, views, reporting functions, and RLS.
-- `20261029_source_archive.sql` — source migration/archive tables and source lineage columns.
-- `20261029_secure_public_upload.sql` — validated login-free QB upload RPCs and browser permissions.
-- `20261029_harden_source_archive.sql` — explicit browser denial and supporting archive indexes.
+Before opening a pull request or deploying a code change, run:
 
-These migrations are designed around the `income_*` namespace and do not modify the existing RFP application tables.
+```bash
+npm run build
+```
 
-## Google source workbook
+## Supabase migrations
 
-The original E-WORKS workbook was used only for the completed one-time migration. Future website uploads land in Supabase and do not require Google service-account credentials.
+Database migrations are stored in `supabase/migrations/`. The migrations are designed around the E-WORKS `income_*` namespace and are separate from the RFP application's tables.
 
-## UI/UX Pro Max
+| Migration | Purpose |
+| --- | --- |
+| `20261029_income_report.sql` | Base IncomeReport tables, views, reporting functions, and RLS |
+| `20261029_source_archive.sql` | Source archive tables and source lineage |
+| `20261029_secure_public_upload.sql` | Validated login-free QuickBooks upload RPCs and browser permissions |
+| `20261029_harden_source_archive.sql` | Browser restrictions and supporting archive indexes |
+| `20261029_master_workbook_reference_sync.sql` | Master workbook reference-data synchronization |
+| `20261030_dashboard_month_sof_filters.sql` | Dashboard month and SOF filtering |
+| `20261104_approved_cost_mapping_and_breakdown.sql` | Approved cost mapping and cost breakdown support |
+| `20261104_fix_master_workbook_reference_delete.sql` | Reference-data delete handling |
+| `20261104_reclassify_overhead_cost_account.sql` | Overhead account classification |
+| `20261123_income_monthly_project_summary.sql` | Monthly project summary reporting |
+| `20261126_company_scoped_qb_uploads.sql` | Company-scoped QuickBooks uploads and reporting |
+| `20261126_dedupe_overlapping_qb_uploads.sql` | Deduplication support for overlapping QuickBooks imports |
+| `20261126_financial_monitor_budget_project_enhancements.sql` | Financial monitor, budget, and project analysis enhancements |
 
-The design review is documented in `docs/ui-ux-pro-max-design.md`: financial data first, restrained visuals, task-based pages, consistent controls, responsive tables, and semantic status color only.
+Apply migrations only to the intended Supabase project and review the SQL before execution. Do not run these migrations against the RFP database or another unrelated project.
+
+## Deployment
+
+The production site is hosted on Vercel:
+
+- Production URL: https://e-works-income-report.vercel.app/
+- Git repository: https://github.com/blimpMac/IncomeReport
+- Production branch: `main`
+
+The Vercel project is connected to the repository. Commits pushed to `main` are eligible for production deployment when the Vercel project and deployment limits permit. Verify the deployment status and deployed commit in Vercel before treating a change as live.
+
+## Operational notes
+
+- Keep business logic and database access in the existing application modules; avoid duplicating query logic across pages.
+- Use company-scoped queries for company-specific transaction and reporting data.
+- Preserve existing `income_*` data and review migration effects before changing database objects.
+- Do not use production data as test fixtures or upload dummy transactions to the live database.
+- For UI changes, check desktop and narrow/mobile widths and confirm that tables and filters remain usable.
+- A successful local build does not by itself prove that the production deployment completed successfully.
