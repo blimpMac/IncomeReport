@@ -5,8 +5,8 @@ const monthName = value => value ? new Date(`${value}-01T00:00:00`).toLocaleDate
 const categoryName = value => {
   const key = String(value || '').toUpperCase().replace(/[\s_-]+/g, '')
   if (key.includes('SUPPLY')) return 'Supply'
-  if (key.includes('SERVIC')) return 'Servicing'
-  if (key.includes('CIVIL')) return 'Civil Works'
+  if (key.includes('SERVIC')) return 'Service'
+  if (key.includes('CIVIL')) return 'Civil'
   if (key.includes('EWORK')) return 'Eworks'
   if (!key || key === 'ALLTRANSACTIONS' || key === 'PROJECT') return 'Uncategorized'
   return value || 'Uncategorized'
@@ -98,6 +98,7 @@ function MainDashboard() {
   const years = useMemo(() => [...new Set(months.map(month => month.slice(0, 4)))], [months])
   const [year, setYear] = useState('')
   const [month, setMonth] = useState('')
+  const [monitorCategory, setMonitorCategory] = useState('all')
   useEffect(() => {
     if (years.length && year !== 'all' && !years.includes(year)) setYear(years[0])
     if (!years.length) setYear('')
@@ -122,10 +123,10 @@ function MainDashboard() {
         // Run one month at a time to avoid concurrent aggregate queries
         // competing for the same database statement-timeout budget.
         for (const reportMonth of selectedMonths) {
-          const { data, error: reportError } = await supabase.rpc('income_monthly_report', { p_month: `${reportMonth}-01` })
+          const { data, error: reportError } = await supabase.rpc('income_financial_monitor_month', { p_month: `${reportMonth}-01`, p_company: 'Greenlight Power Inc.', p_category: monitorCategory })
           if (!active) return
           if (reportError) throw reportError
-          nextReports.push({ month: reportMonth, ...(data || {}) })
+          nextReports.push({ month: reportMonth, ...(data?.report || {}) })
         }
         if (!active) return
         setReports(nextReports)
@@ -138,22 +139,18 @@ function MainDashboard() {
     }
     loadReports()
     return () => { active = false }
-  }, [selectedMonths])
+  }, [selectedMonths, monitorCategory])
   useEffect(() => {
     let active = true
     if (!month || month === '__year_total__') { setSofRows([]); setCostAccounts([]); return }
-    Promise.all([
-      supabase.rpc('income_monthly_sof_summary', { p_month: `${month}-01` }),
-      supabase.rpc('income_monthly_cost_accounts', { p_month: `${month}-01` }),
-    ]).then(([sofResult, accountResult]) => {
-      if (!active) return
-      if (sofResult.error) setError(sofResult.error.message)
-      else setSofRows(sofResult.data || [])
-      if (accountResult.error) setError(accountResult.error.message)
-      else setCostAccounts(accountResult.data || [])
-    }).catch(e => { if (active) setError(e?.message || 'Unable to load transaction breakdown.') })
+    supabase.rpc('income_financial_monitor_month', { p_month: `${month}-01`, p_company: 'Greenlight Power Inc.', p_category: monitorCategory })
+      .then(({ data, error: queryError }) => {
+        if (!active) return
+        if (queryError) setError(queryError.message)
+        else { setSofRows(data?.sof_rows || []); setCostAccounts(data?.cost_accounts || []) }
+      }).catch(e => { if (active) setError(e?.message || 'Unable to load transaction breakdown.') })
     return () => { active = false }
-  }, [month])
+  }, [month, monitorCategory])
   const visibleReports = year === 'all' ? reports : reports.filter(row => row.month.startsWith(year))
   const annualRows = visibleReports
   const annualTotal = month === '__year_total__' ? annualRows.reduce((total, row) => {
@@ -176,7 +173,7 @@ function MainDashboard() {
     return top
   }, [sofRows])
   const riskProjects = [...sofRows].filter(row => Number(row.gross_profit || 0) < 0).sort((a, b) => Number(a.gross_profit || 0) - Number(b.gross_profit || 0)).slice(0, 5)
-  return <Shell><div className="monitor-heading"><div><p className="monitor-eyebrow">FINANCIAL OPERATIONS</p><h1>Financial monitor</h1><p>Track revenue, delivery costs, and project margin by reporting period.</p></div><div className="monitor-period"><label>Year<select value={year} onChange={event => setYear(event.target.value)}><option value="all">All years</option>{years.map(value => <option key={value} value={value}>{value}</option>)}</select></label><label>Period<select value={month} onChange={event => setMonth(event.target.value)}><option value="__year_total__">{year === 'all' ? 'All years total' : `${year} total`}</option>{yearMonths.map(value => <option key={value} value={value}>{monthName(value)}</option>)}</select></label></div></div>
+  return <Shell><div className="monitor-heading"><div><p className="monitor-eyebrow">FINANCIAL OPERATIONS</p><h1>Financial monitor</h1><p>Track revenue, delivery costs, and project margin by reporting period.</p></div><div className="monitor-period"><label>Year<select value={year} onChange={event => setYear(event.target.value)}><option value="all">All years</option>{years.map(value => <option key={value} value={value}>{value}</option>)}</select></label><label>Period<select value={month} onChange={event => setMonth(event.target.value)}><option value="__year_total__">{year === 'all' ? 'All years total' : `${year} total`}</option>{yearMonths.map(value => <option key={value} value={value}>{monthName(value)}</option>)}</select></label><label>Category<select value={monitorCategory} onChange={event => setMonitorCategory(event.target.value)}><option value="all">All categories</option><option value="Eworks">Eworks</option><option value="Supply">Supply</option><option value="Service">Service</option><option value="Civil">Civil</option></select></label></div></div>
     {problem && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{problem}</div>}
     <div className="monitor-metrics">
       <Metric label="Recognized revenue" value={selected ? money(selected.revenue) : '—'} note={month === '__year_total__' ? (year === 'all' ? 'All available years' : `${year} full-year total`) : month ? monthName(month) : 'No reports available'} tone="green" />
@@ -244,10 +241,12 @@ function ProjectTransactions({ projectKey, startDate, endDate, transactionCount 
     setError('')
     const pageOffset = reset ? 0 : offset
     try {
-      const { data, error: queryError } = await supabase.rpc('income_project_transaction_page', {
+      const { data, error: queryError } = await supabase.rpc('income_project_transaction_page_v2', {
         p_start_date: startDate,
         p_end_date: endDate,
         p_project_key: projectKey,
+        p_company: 'Greenlight Power Inc.',
+        p_category: 'all',
         p_limit: pageSize,
         p_offset: pageOffset,
       })
@@ -300,15 +299,21 @@ function ProjectTransactions({ projectKey, startDate, endDate, transactionCount 
 }
 
 function ProjectAnalysis() {
-  const [selectedDate, setSelectedDate] = useState(() => dateInputValue())
+  const [coverage, setCoverage] = useState('all')
+  const [selectedMonth, setSelectedMonth] = useState(() => dateInputValue().slice(0, 7))
   const [projects, setProjects] = useState([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const startDate = useMemo(() => dateMinusDays(selectedDate, 14), [selectedDate])
-  const rangeLabel = `${dateLabel(startDate)} – ${dateLabel(selectedDate)}`
+  const startDate = useMemo(() => coverage === 'month' ? `${selectedMonth}-01` : null, [coverage, selectedMonth])
+  const endDate = useMemo(() => {
+    if (coverage !== 'month' || !selectedMonth) return null
+    const [y,m] = selectedMonth.split('-').map(Number)
+    return new Date(Date.UTC(y, m, 0)).toISOString().slice(0,10)
+  }, [coverage, selectedMonth])
+  const rangeLabel = coverage === 'all' ? 'All available dates' : `${monthName(selectedMonth)} (${dateLabel(startDate)} – ${dateLabel(endDate)})`
 
   useEffect(() => {
-    if (!selectedDate || !startDate) return
+    if (coverage === 'month' && (!startDate || !endDate)) return
     let active = true
     const load = async () => {
       setLoading(true)
@@ -322,9 +327,11 @@ function ProjectAnalysis() {
         if (refResult.error) throw refResult.error
 
         const [summaryResult] = await Promise.all([
-          supabase.rpc('income_project_analysis_summary', {
+          supabase.rpc('income_project_analysis_summary_v2', {
             p_start_date: startDate,
-            p_end_date: selectedDate,
+            p_end_date: endDate,
+            p_company: 'Greenlight Power Inc.',
+            p_category: 'all',
           }),
         ])
         if (summaryResult.error) throw summaryResult.error
@@ -370,7 +377,7 @@ function ProjectAnalysis() {
     }
     load()
     return () => { active = false }
-  }, [selectedDate, startDate])
+  }, [coverage, startDate, endDate])
 
   const categories = useMemo(() => {
     const map = new Map()
@@ -397,23 +404,21 @@ function ProjectAnalysis() {
 
   return <Shell page="projects">
     <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-      <div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">Project monitoring</p><h1 className="mt-1 text-2xl font-semibold text-slate-950">Project Analysis</h1><p className="mt-1 text-sm text-slate-500">Review actual project activity over the 14 days leading up to your selected date.</p></div>
-      <label className="block text-xs font-semibold text-slate-500">Analysis date
-        <input type="date" value={selectedDate} onChange={event => setSelectedDate(event.target.value)} className="mt-1 block min-w-[190px] rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-800" />
-        <span className="mt-1 block font-normal text-slate-400">Coverage: {rangeLabel}</span>
-      </label>
+      <div><p className="text-xs font-semibold uppercase tracking-[0.14em] text-emerald-700">Project monitoring</p><h1 className="mt-1 text-2xl font-semibold text-slate-950">Project Analysis</h1><p className="mt-1 text-sm text-slate-500">Review project budgets, actual costs, and income across all available dates or a selected month.</p></div>
+      <div className="flex flex-wrap items-end gap-3"><label className="block text-xs font-semibold text-slate-500">Date coverage<select value={coverage} onChange={event => setCoverage(event.target.value)} className="mt-1 block min-w-[160px] rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-800"><option value="all">All Dates</option><option value="month">Per Month</option></select></label>{coverage === 'month' && <label className="block text-xs font-semibold text-slate-500">Month and year<input type="month" value={selectedMonth} onChange={event => setSelectedMonth(event.target.value)} className="mt-1 block min-w-[170px] rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium text-slate-800" /></label>}<span className="pb-2 text-xs text-slate-400">Coverage: {rangeLabel}</span></div>
     </div>
     {error && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
     <div className="mb-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <Metric label="Project revenue" value={money(totals.revenue)} note={rangeLabel} tone="green" />
+      <Metric label="Project budget" value={money(totals.budget)} note="Mapped project cost budgets" tone="green" />
       <Metric label="Actual project cost" value={money(totals.actual)} note="Materials, labor, overhead and other" tone="blue" />
-      <Metric label="COGS" value={money(totals.cogs)} note="Materials + labor" tone="blue" />
-      <Metric label="Budget variance" value={variance == null ? '—' : money(variance)} note={variance == null ? 'No project cost budgets mapped' : variance >= 0 ? 'Remaining budget' : 'Over budget'} tone={variance != null && variance < 0 ? 'red' : 'green'} />
+      <Metric label="Income" value={money(totals.revenue)} note={rangeLabel} tone="green" />
+      <Metric label="Net income" value={money(totals.revenue - totals.actual)} note="Income less actual project cost" tone={totals.revenue - totals.actual < 0 ? 'red' : 'green'} />
     </div>
     {loading ? <div className="rounded-xl border border-emerald-100 bg-white p-8 text-center text-sm text-slate-500">Loading project activity…</div> : <div className="space-y-4">
-      {projects.length > 0 && <Card title="Portfolio cost vs budget" note={`Actual project costs compared with mapped total cost budgets · ${rangeLabel}`}>
+      {projects.length > 0 && <Card title="Budget utilization" note={`Actual costs against mapped project budgets · ${rangeLabel}`}>
         <ProjectBars budget={totals.budget} actual={totals.actual} />
-        <div className="mt-4 grid gap-3 text-xs text-slate-500 sm:grid-cols-3"><span>Revenue <b className="text-slate-800">{money(totals.revenue)}</b></span><span>COGS <b className="text-slate-800">{money(totals.cogs)}</b></span><span>Projects <b className="text-slate-800">{number(projects.length)}</b></span></div>
+        <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${variance != null && variance < 0 ? 'bg-rose-500' : totals.budget > 0 && totals.actual / totals.budget >= .8 ? 'bg-amber-500' : 'bg-emerald-600'}`} style={{width:`${totals.budget > 0 ? Math.min(100, Math.max(0, totals.actual / totals.budget * 100)) : 0}%`}} /></div>
+        <div className="mt-3 grid gap-3 text-xs text-slate-500 sm:grid-cols-4"><span>Remaining budget <b className="text-slate-800">{variance == null ? '—' : money(variance)}</b></span><span>Utilization <b className="text-slate-800">{totals.budget > 0 ? `${(totals.actual / totals.budget * 100).toFixed(1)}%` : '—'}</b></span><span>COGS <b className="text-slate-800">{money(totals.cogs)}</b></span><span>Projects <b className="text-slate-800">{number(projects.length)}</b></span></div>
       </Card>}
       {categories.map(category => <section key={category.name} className="overflow-hidden rounded-2xl border border-emerald-100 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 bg-emerald-50 px-4 py-4">
@@ -438,7 +443,7 @@ function ProjectAnalysis() {
               <ProjectTransactions key={`${project.key}-${startDate}-${selectedDate}`} projectKey={project.key} startDate={startDate} endDate={selectedDate} transactionCount={project.transactionCount} />
             </div>
           </div>
-        </details>)}</div> : <div className="px-4 py-4 text-xs text-slate-500">No project transactions recorded in this 14-day window.</div>}
+        </details>)}</div> : <div className="px-4 py-4 text-xs text-slate-500">No project transactions recorded for this coverage.</div>}
       </section>)}
       {!projects.length && <div className="rounded-xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">No project transactions found from {rangeLabel}.</div>}
     </div>}
