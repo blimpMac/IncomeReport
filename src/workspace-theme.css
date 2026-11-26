@@ -83,3 +83,117 @@ body { background: var(--finance-bg); color: var(--finance-ink); }
   .monitor-lower { grid-template-columns: minmax(0,1fr); }
 }
 @media print { .app-topbar { display: none !important; }.app-page { min-height: 0; }.app-page-main { width: 100%; padding: 0; } }
+
+
+/* Left-side RFP-style navigation trigger and hover drawer */
+.app-topbar-inner { justify-content: flex-start; }
+.app-brand-lockup { order: 1; gap: 14px; }
+.app-topbar-actions { order: 2; margin-left: auto; }
+.app-menu-trigger-left {
+  order: -1;
+  min-width: 82px;
+  justify-content: center;
+  border-color: #d6e2e3;
+  color: #173b4b;
+  transition: transform .2s ease, border-color .2s ease, background .2s ease, box-shadow .2s ease;
+}
+.app-menu-trigger-left:hover,
+.app-menu-trigger-left.is-open {
+  transform: translateY(-1px);
+  border-color: #79b7a5;
+  background: #eff9f5;
+  box-shadow: 0 5px 16px rgba(8,127,104,.13);
+}
+.app-menu-trigger-left .app-menu-glyph { transition: transform .25s ease; }
+.app-menu-trigger-left:hover .app-menu-glyph,
+.app-menu-trigger-left.is-open .app-menu-glyph { transform: scale(1.08); }
+.app-menu-chevron { margin-left: 1px; color: #71858c; transition: transform .28s cubic-bezier(.2,.8,.2,1); }
+.app-menu-trigger-left.is-open .app-menu-chevron { transform: rotate(180deg); }
+.app-navigation-menu {
+  left: clamp(16px, 3vw, 40px);
+  right: auto;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-8px) scale(.985);
+  transform-origin: top left;
+  transition: opacity .18s ease, transform .22s cubic-bezier(.2,.8,.2,1), visibility .18s;
+}
+.app-navigation-menu.is-open {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0) scale(1);
+}
+.app-navigation-link {
+  position: relative;
+  transition: color .16s ease, background-color .16s ease, transform .16s ease, box-shadow .16s ease;
+}
+.app-navigation-link:hover {
+  transform: translateX(3px);
+  background: #edf7f3;
+  box-shadow: inset 3px 0 0 #159477;
+}
+.app-navigation-link.is-active { box-shadow: inset 3px 0 0 #087f68; }
+.app-navigation-group { animation: nav-group-enter .24s ease both; }
+.app-navigation-group:nth-child(2) { animation-delay: .035s; }
+.app-navigation-group:nth-child(3) { animation-delay: .07s; }
+@keyframes nav-group-enter {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Subtle interaction feedback across dashboard selections and panels */
+#root main select,
+#root main input,
+#root main button,
+.monitor-period select,
+.monitor-category-select {
+  transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease, transform .16s ease;
+}
+#root main select:hover,
+.monitor-period select:hover {
+  border-color: #8eb9ad;
+  box-shadow: 0 2px 8px rgba(8,127,104,.08);
+}
+#root main .monitor-metric,
+#root main .monitor-grid > section,
+#root main .budget-summary-card {
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+#root main .monitor-metric:hover,
+#root main .monitor-grid > section:hover,
+#root main .budget-summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 9px 24px rgba(22,51,63,.08);
+  border-color: #c4ded5;
+}
+#root main table tbody tr {
+  transition: background-color .15s ease, box-shadow .15s ease;
+}
+#root main table tbody tr:hover {
+  background-color: #f0f8f5;
+  box-shadow: inset 3px 0 0 rgba(8,127,104,.55);
+}
+@media (max-width: 767px) {
+  .app-topbar-inner { flex-wrap: wrap; gap: 8px; }
+  .app-brand-lockup { gap: 9px; }
+  .app-menu-trigger-left { min-width: 42px; width: 42px; padding-inline: 10px; }
+  .app-menu-trigger-left .app-menu-trigger-label,
+  .app-menu-trigger-left .app-menu-chevron { display: none; }
+  .app-navigation-menu {
+    left: 12px;
+    right: 12px;
+    top: calc(100% - 1px);
+    width: auto;
+    grid-template-columns: 1fr;
+    max-height: min(72vh, 560px);
+    overflow-y: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-menu-trigger-left, .app-menu-glyph, .app-menu-chevron,
+  .app-navigation-menu, .app-navigation-link, .app-navigation-group,
+  #root main .monitor-metric, #root main .monitor-grid > section,
+  #root main table tbody tr { animation: none !important; transition: none !important; }
+}
