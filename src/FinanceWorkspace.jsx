@@ -393,7 +393,10 @@ function ProjectAnalysis() {
       group.cogs += project.cogs
     }
     const order = ['Eworks', 'Supply', 'Service', 'Civil', 'Uncategorized']
-    return [...order, ...[...map.keys()].filter(name => !order.includes(name))].map(name => map.get(name) || { name, projects: [], revenue: 0, actual: 0, budget: 0, cogs: 0 })
+    // Render only categories that actually have projects; empty placeholder
+    // panels add height without giving the user any useful information.
+    return [...order.filter(name => map.has(name)), ...[...map.keys()].filter(name => !order.includes(name))]
+      .map(name => map.get(name))
   }, [projects])
 
   const totals = useMemo(() => projects.reduce((acc, project) => ({
@@ -592,8 +595,8 @@ function BudgetDashboard() {
       ]
       XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet(summary),'Budget Summary')
       const grouped=new Map()
-      for(const row of all){const key=String(row.transaction_date||'').slice(0,7)||'Undated';if(!grouped.has(key))grouped.set(key,[]);const p=projectMap.get(String(row.sof_key||''))||projectMap.get(String(row.sof_base||''));const amount=Number(row.debit||0)-Number(row.credit||0);grouped.get(key).push([row.transaction_date,row.type,row.num,row.name,row.memo||row.account,amount,'','',amount,p?Number(p.actual_cost||0):''])}
-      const headers=['Date','Type','Ref. No.','Entity','Particulars','Amount','VAT','Net','Total Amount','Project Cost']
+      for(const row of all){const key=String(row.transaction_date||'').slice(0,7)||'Undated';if(!grouped.has(key))grouped.set(key,[]);const p=projectMap.get(String(row.sof_key||''))||projectMap.get(String(row.sof_base||''));const amount=Number(row.debit||0)-Number(row.credit||0);grouped.get(key).push([row.transaction_date,row.type,row.num,row.name,row.memo||row.account,amount,p?Number(p.actual_cost||0):''])}
+      const headers=['Date','Type','Ref. No.','Entity','Particulars','Amount','Project Cost']
       for(const [month,items] of grouped){XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet([headers,...items]),month.slice(0,31))}
       const filename=`budget-monitor-${company==='Greenlight Power Inc.'?'greenlight':'gemcor'}-${range.from}-to-${range.to}.xlsx`
       XLSX.writeFile(workbook,filename)
@@ -619,7 +622,7 @@ function BudgetDashboard() {
       <div className="h-4 overflow-hidden rounded-full bg-slate-100"><div className={remaining<0?'h-full bg-rose-500':utilization>=80?'h-full bg-amber-500':'h-full bg-emerald-600'} style={{width:`${Math.min(100,Math.max(0,utilization))}%`}}/></div>
       <div className="mt-2 flex flex-wrap justify-between gap-2 text-xs text-slate-500"><span>{utilization.toFixed(1)}% utilized</span><span>Variance: <b className={remaining<0?'text-rose-700':'text-emerald-700'}>{money(remaining)}</b></span></div>
     </Card>
-    <Card title="Budget monitoring transactions" note="Spreadsheet-style ledger. VAT and net split are not present in the current QuickBooks transaction schema and are intentionally left blank rather than estimated.">
+    <Card title="Budget monitoring transactions" note="Budget-linked QuickBooks expenses for the selected period.">
       <div className="mb-4 flex flex-col gap-3 xl:flex-row xl:items-end xl:justify-between">
         <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
           <label className="text-xs font-semibold text-slate-600">Transaction coverage<select value={exportType} onChange={e=>setExportType(e.target.value)} className="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"><option value="year">Per Year</option><option value="month">Per Month</option><option value="range">Customized Date Range</option></select></label>
@@ -632,8 +635,8 @@ function BudgetDashboard() {
       </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1150px] border-collapse text-xs">
-          <thead className="bg-[#242a32] text-white"><tr>{['Date','Type','Ref. No.','Entity','Particulars','Amount','VAT','Net','Total Amount','Project Cost'].map(h=><th key={h} className="border border-slate-500 px-2.5 py-2.5 text-left font-bold">{h}</th>)}</tr></thead>
-          <tbody>{rows.map(row=>{const p=projectMap.get(String(row.sof_key||''))||projectMap.get(String(row.sof_base||''));const amount=Number(row.debit||0)-Number(row.credit||0);return <tr key={row.id} className="odd:bg-white even:bg-slate-50"><td className="border border-slate-200 px-2 py-2 whitespace-nowrap">{shortDate(row.transaction_date)}</td><td className="border border-slate-200 px-2 py-2">{row.type||'—'}</td><td className="border border-slate-200 px-2 py-2">{row.num||row.sof_base||'—'}</td><td className="border border-slate-200 px-2 py-2">{row.name||'—'}</td><td className="border border-slate-200 px-2 py-2 max-w-[320px] whitespace-normal">{row.memo||row.account||'—'}</td><td className="border border-slate-200 px-2 py-2 text-right tabular-nums">{money(amount)}</td><td className="border border-slate-200 px-2 py-2 text-right">—</td><td className="border border-slate-200 px-2 py-2 text-right">—</td><td className="border border-slate-200 bg-amber-50 px-2 py-2 text-right font-semibold tabular-nums">{money(amount)}</td><td className="border border-slate-200 bg-emerald-50 px-2 py-2 text-right font-semibold tabular-nums">{p?money(p.actual_cost):'—'}</td></tr>})}</tbody>
+          <thead className="bg-[#242a32] text-white"><tr>{['Date','Type','Ref. No.','Entity','Particulars','Amount','Project Cost'].map(h=><th key={h} className="border border-slate-500 px-2.5 py-2.5 text-left font-bold">{h}</th>)}</tr></thead>
+          <tbody>{rows.map(row=>{const p=projectMap.get(String(row.sof_key||''))||projectMap.get(String(row.sof_base||''));const amount=Number(row.debit||0)-Number(row.credit||0);return <tr key={row.id} className="odd:bg-white even:bg-slate-50"><td className="border border-slate-200 px-2 py-2 whitespace-nowrap">{shortDate(row.transaction_date)}</td><td className="border border-slate-200 px-2 py-2">{row.type||'—'}</td><td className="border border-slate-200 px-2 py-2">{row.num||row.sof_base||'—'}</td><td className="border border-slate-200 px-2 py-2">{row.name||'—'}</td><td className="border border-slate-200 px-2 py-2 max-w-[320px] whitespace-normal">{row.memo||row.account||'—'}</td><td className="border border-slate-200 px-2 py-2 text-right tabular-nums">{money(amount)}</td><td className="border border-slate-200 bg-emerald-50 px-2 py-2 text-right font-semibold tabular-nums">{p?money(p.actual_cost):'—'}</td></tr>})}</tbody>
         </table>
         {!rows.length&&!loading&&!loadingMore&&<p className="p-6 text-center text-sm text-slate-500">No budget-linked transactions found.</p>}
         {loadingMore&&<p className="p-4 text-center text-xs text-slate-500">Loading budget transactions…</p>}
