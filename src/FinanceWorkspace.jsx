@@ -478,7 +478,7 @@ function BudgetDashboard() {
     if (months.length && !months.includes(exportMonth)) setExportMonth(months[0])
   }, [years, months, exportYear, exportMonth])
 
-  const projectMap = useMemo(() => new Map(projects.map(project => [String(project.project_key), project])), [projects])
+  const projectMap = useMemo(() => new Map(projects.flatMap(project => [[String(project.project_key), project], ...(project.matched_sof_base ? [[String(project.matched_sof_base), project]] : [])])), [projects])
   const allocated = projects.reduce((sum, project) => sum + Number(project.allocated_budget || 0), 0)
   const actual = projects.reduce((sum, project) => sum + Number(project.actual_cost || 0), 0)
   const remaining = allocated - actual
@@ -503,12 +503,13 @@ function BudgetDashboard() {
     if (reset) setLoadingMore(true); else setLoadingMore(true)
     setError('')
     try {
-      const keys = projects.map(project => String(project.project_key)).filter(Boolean)
+      const exactKeys = projects.map(project => String(project.project_key)).filter(Boolean)
+      const baseKeys = projects.map(project => String(project.matched_sof_base || '')).filter(Boolean)
       let query = supabase.from('income_all_transactions')
         .select('id,transaction_date,type,num,name,memo,account,debit,credit,sof_base,sof_key,company')
         .eq('company', company)
         .neq('category', 'Revenue')
-        .in('sof_base', keys)
+        .or([exactKeys.length ? `sof_key.in.(${exactKeys.join(',')})` : '', baseKeys.length ? `sof_base.in.(${baseKeys.join(',')})` : ''].filter(Boolean).join(','))
         .order('transaction_date', {ascending:false})
         .order('id', {ascending:false})
         .range(pageOffset,pageOffset+pageSize)
@@ -541,13 +542,15 @@ function BudgetDashboard() {
     if(range.from>range.to) {setError('Start date must be on or before end date.');return}
     setExporting(true);setError('');setExportSuccess('')
     try {
-      const keys=projects.map(project=>String(project.project_key)).filter(Boolean)
+      const exactKeys=projects.map(project=>String(project.project_key)).filter(Boolean)
+      const baseKeys=projects.map(project=>String(project.matched_sof_base||'')).filter(Boolean)
       const all=[]
       const batchSize=1000
       for(let offset=0;;offset+=batchSize){
         let query=supabase.from('income_all_transactions')
           .select('id,company,division,transaction_date,type,num,name,memo,account,debit,credit,sof_base,sof_key')
-          .eq('company',company).neq('category','Revenue').in('sof_base',keys)
+          .eq('company',company).neq('category','Revenue')
+          .or([exactKeys.length ? `sof_key.in.(${exactKeys.join(',')})` : '', baseKeys.length ? `sof_base.in.(${baseKeys.join(',')})` : ''].filter(Boolean).join(','))
           .gte('transaction_date',range.from).lte('transaction_date',range.to)
           .order('transaction_date',{ascending:true}).order('id',{ascending:true})
           .range(offset,offset+batchSize-1)
@@ -567,7 +570,7 @@ function BudgetDashboard() {
       ]
       XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet(summary),'Budget Summary')
       const grouped=new Map()
-      for(const row of all){const key=String(row.transaction_date||'').slice(0,7)||'Undated';if(!grouped.has(key))grouped.set(key,[]);const p=projectMap.get(String(row.sof_base||row.sof_key||''));const amount=Number(row.debit||0)-Number(row.credit||0);grouped.get(key).push([row.transaction_date,row.type,row.num,row.name,row.memo||row.account,amount,'','',amount,p?Number(p.actual_cost||0):''])}
+      for(const row of all){const key=String(row.transaction_date||'').slice(0,7)||'Undated';if(!grouped.has(key))grouped.set(key,[]);const p=projectMap.get(String(row.sof_key||''))||projectMap.get(String(row.sof_base||''));const amount=Number(row.debit||0)-Number(row.credit||0);grouped.get(key).push([row.transaction_date,row.type,row.num,row.name,row.memo||row.account,amount,'','',amount,p?Number(p.actual_cost||0):''])}
       const headers=['Date','Type','Ref. No.','Entity','Particulars','Amount','VAT','Net','Total Amount','Project Cost']
       for(const [month,items] of grouped){XLSX.utils.book_append_sheet(workbook,XLSX.utils.aoa_to_sheet([headers,...items]),month.slice(0,31))}
       const filename=`budget-monitor-${company==='Greenlight Power Inc.'?'greenlight':'gemcor'}-${range.from}-to-${range.to}.xlsx`
@@ -607,7 +610,7 @@ function BudgetDashboard() {
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1150px] border-collapse text-xs">
           <thead className="bg-[#242a32] text-white"><tr>{['Date','Type','Ref. No.','Entity','Particulars','Amount','VAT','Net','Total Amount','Project Cost'].map(h=><th key={h} className="border border-slate-500 px-2.5 py-2.5 text-left font-bold">{h}</th>)}</tr></thead>
-          <tbody>{rows.map(row=>{const p=projectMap.get(String(row.sof_base||row.sof_key||''));const amount=Number(row.debit||0)-Number(row.credit||0);return <tr key={row.id} className="odd:bg-white even:bg-slate-50"><td className="border border-slate-200 px-2 py-2 whitespace-nowrap">{shortDate(row.transaction_date)}</td><td className="border border-slate-200 px-2 py-2">{row.type||'—'}</td><td className="border border-slate-200 px-2 py-2">{row.num||row.sof_base||'—'}</td><td className="border border-slate-200 px-2 py-2">{row.name||'—'}</td><td className="border border-slate-200 px-2 py-2 max-w-[320px] whitespace-normal">{row.memo||row.account||'—'}</td><td className="border border-slate-200 px-2 py-2 text-right tabular-nums">{money(amount)}</td><td className="border border-slate-200 px-2 py-2 text-right">—</td><td className="border border-slate-200 px-2 py-2 text-right">—</td><td className="border border-slate-200 bg-amber-50 px-2 py-2 text-right font-semibold tabular-nums">{money(amount)}</td><td className="border border-slate-200 bg-emerald-50 px-2 py-2 text-right font-semibold tabular-nums">{p?money(p.actual_cost):'—'}</td></tr>})}</tbody>
+          <tbody>{rows.map(row=>{const p=projectMap.get(String(row.sof_key||''))||projectMap.get(String(row.sof_base||''));const amount=Number(row.debit||0)-Number(row.credit||0);return <tr key={row.id} className="odd:bg-white even:bg-slate-50"><td className="border border-slate-200 px-2 py-2 whitespace-nowrap">{shortDate(row.transaction_date)}</td><td className="border border-slate-200 px-2 py-2">{row.type||'—'}</td><td className="border border-slate-200 px-2 py-2">{row.num||row.sof_base||'—'}</td><td className="border border-slate-200 px-2 py-2">{row.name||'—'}</td><td className="border border-slate-200 px-2 py-2 max-w-[320px] whitespace-normal">{row.memo||row.account||'—'}</td><td className="border border-slate-200 px-2 py-2 text-right tabular-nums">{money(amount)}</td><td className="border border-slate-200 px-2 py-2 text-right">—</td><td className="border border-slate-200 px-2 py-2 text-right">—</td><td className="border border-slate-200 bg-amber-50 px-2 py-2 text-right font-semibold tabular-nums">{money(amount)}</td><td className="border border-slate-200 bg-emerald-50 px-2 py-2 text-right font-semibold tabular-nums">{p?money(p.actual_cost):'—'}</td></tr>})}</tbody>
         </table>
         {!rows.length&&!loading&&!loadingMore&&<p className="p-6 text-center text-sm text-slate-500">No budget-linked transactions found.</p>}
         {loadingMore&&<p className="p-4 text-center text-xs text-slate-500">Loading budget transactions…</p>}
