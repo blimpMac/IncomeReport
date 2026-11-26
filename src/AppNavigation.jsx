@@ -3,7 +3,7 @@ import React, { useEffect, useRef, useState } from 'react'
 const NAV = [
   { id: 'dashboard', label: 'Financial monitor', group: 'Overview' },
   { id: 'projects', label: 'Project analysis', group: 'Overview' },
-  { id: 'transactions', label: 'Transaction details', group: 'Overview' },
+  { id: 'transactions', label: 'All transactions', group: 'Overview' },
   { id: 'monthly', label: 'Monthly report', group: 'Reports' },
   { id: 'sof', label: 'SOF analysis', group: 'Reports' },
   { id: 'costcompare', label: 'Project profitability', group: 'Reports' },
