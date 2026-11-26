@@ -92,10 +92,12 @@ function MainDashboard() {
   const [year, setYear] = useState('')
   const [month, setMonth] = useState('')
   useEffect(() => {
-    if (years.length && !years.includes(year)) setYear(years[0])
+    if (years.length && year !== 'all' && !years.includes(year)) setYear(years[0])
     if (!years.length) setYear('')
   }, [years, year])
-  const yearMonths = useMemo(() => months.filter(value => value.startsWith(year)), [months, year])
+  // "All years" includes every available reporting month while keeping the
+  // month selector and the month-specific KPI cards usable.
+  const yearMonths = useMemo(() => year === 'all' ? months : months.filter(value => value.startsWith(year)), [months, year])
   useEffect(() => { if (!yearMonths.includes(month)) setMonth(yearMonths[0] || '') }, [yearMonths, month])
   const selectedMonths = useMemo(() => [...yearMonths].reverse(), [yearMonths])
   const [reports, setReports] = useState([])
@@ -145,7 +147,7 @@ function MainDashboard() {
     }).catch(e => { if (active) setError(e?.message || 'Unable to load transaction breakdown.') })
     return () => { active = false }
   }, [month])
-  const visibleReports = reports.filter(row => row.month.startsWith(year))
+  const visibleReports = year === 'all' ? reports : reports.filter(row => row.month.startsWith(year))
   const selected = reports.find(row => row.month === month)
   const max = Math.max(1, ...visibleReports.flatMap(row => [Number(row.revenue || 0), Number(row.total_cost || 0)]))
   const problem = error || monthsError
@@ -161,7 +163,7 @@ function MainDashboard() {
     return top
   }, [sofRows])
   const riskProjects = [...sofRows].filter(row => Number(row.gross_profit || 0) < 0).sort((a, b) => Number(a.gross_profit || 0) - Number(b.gross_profit || 0)).slice(0, 5)
-  return <Shell><div className="monitor-heading"><div><p className="monitor-eyebrow">FINANCIAL OPERATIONS</p><h1>Financial monitor</h1><p>Track revenue, delivery costs, and project margin by reporting period.</p></div><div className="monitor-period"><label>Year<select value={year} onChange={event => setYear(event.target.value)}>{years.map(value => <option key={value}>{value}</option>)}</select></label><label>Month<select value={month} onChange={event => setMonth(event.target.value)}>{yearMonths.map(value => <option key={value} value={value}>{monthName(value)}</option>)}</select></label></div></div>
+  return <Shell><div className="monitor-heading"><div><p className="monitor-eyebrow">FINANCIAL OPERATIONS</p><h1>Financial monitor</h1><p>Track revenue, delivery costs, and project margin by reporting period.</p></div><div className="monitor-period"><label>Year<select value={year} onChange={event => setYear(event.target.value)}><option value="all">All years</option>{years.map(value => <option key={value} value={value}>{value}</option>)}</select></label><label>Month<select value={month} onChange={event => setMonth(event.target.value)}>{yearMonths.map(value => <option key={value} value={value}>{monthName(value)}</option>)}</select></label></div></div>
     {problem && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{problem}</div>}
     <div className="monitor-metrics">
       <Metric label="Recognized revenue" value={selected ? money(selected.revenue) : '—'} note={month ? monthName(month) : 'No reports available'} tone="green" />
@@ -169,8 +171,8 @@ function MainDashboard() {
       <Metric label="Gross profit / (loss)" value={selected ? money(selected.gross_profit) : '—'} note={selected ? `${Number(selected.margin_pct || 0).toFixed(1)}% gross margin` : 'No report data'} tone={Number(selected?.gross_profit || 0) < 0 ? 'red' : 'green'} />
       <Metric label="Transactions" value={selected ? number(selected.transaction_count) : '—'} note={`${number(selected?.unassigned_count)} without SOF mapping`} tone={Number(selected?.unassigned_count || 0) ? 'red' : 'blue'} />
     </div>
-    <div className="monitor-grid"><Card title="Revenue and cost trend" note={`Monthly performance in ${year || 'selected year'}`} className="monitor-trend-card">
-      {loading ? <div className="py-20 text-center text-sm text-slate-500">Loading monthly totals…</div> : visibleReports.length ? <div className="monitor-chart">{visibleReports.map(row => <div key={row.month} className="monitor-chart-month"><div className="monitor-chart-bars"><div title={`Revenue ${money(row.revenue)}`} className="monitor-bar revenue" style={{ height: `${Math.max(2, Number(row.revenue || 0) / max * 100)}%` }} /><div title={`Cost ${money(row.total_cost)}`} className="monitor-bar cost" style={{ height: `${Math.max(2, Number(row.total_cost || 0) / max * 100)}%` }} /></div><span>{monthName(row.month).slice(0, 3)}</span></div>)}</div> : <div className="py-20 text-center text-sm text-slate-500">No reports found for this year.</div>}
+    <div className="monitor-grid"><Card title="Revenue and cost trend" note={year === 'all' ? 'Monthly performance across all available years' : `Monthly performance in ${year || 'selected year'}`} className="monitor-trend-card">
+      {loading ? <div className="py-20 text-center text-sm text-slate-500">Loading monthly totals…</div> : visibleReports.length ? <div className="monitor-chart">{visibleReports.map(row => <div key={row.month} className="monitor-chart-month"><div className="monitor-chart-bars"><div title={`Revenue ${money(row.revenue)}`} className="monitor-bar revenue" style={{ height: `${Math.max(2, Number(row.revenue || 0) / max * 100)}%` }} /><div title={`Cost ${money(row.total_cost)}`} className="monitor-bar cost" style={{ height: `${Math.max(2, Number(row.total_cost || 0) / max * 100)}%` }} /></div><span>{year === 'all' ? monthName(row.month) : monthName(row.month).slice(0, 3)}</span></div>)}</div> : <div className="py-20 text-center text-sm text-slate-500">No reports found for this year.</div>}
       <div className="monitor-legend"><span><i className="revenue" />Revenue</span><span><i className="cost" />Cost</span></div>
     </Card><Card title="Revenue by SOF" note={month ? monthName(month) : 'No report selected'} className="monitor-donut-card"><DonutChart rows={revenueBySof} total={revenueTotal} emptyLabel="No revenue by SOF for this month." /></Card><Card title="COGS & operating cost breakdown" note={month ? `${monthName(month)} · QuickBooks account detail` : 'No report selected'} className="monitor-donut-card"><DonutChart rows={costMix.map(([label, value]) => ({ label, value: Number(value || 0) }))} total={totalCost} emptyLabel="No cost breakdown for this month." /><div className="mt-5 space-y-4 border-t border-slate-100 pt-4">{['Materials','Labor','Overhead','Other'].map(category => { const items = costAccounts.filter(row => row.category === category); const total = items.reduce((sum,row) => sum + Number(row.net_cost || 0),0); return <details key={category} className="group" open={category === 'Materials' || category === 'Labor'}><summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm [&::-webkit-details-marker]:hidden"><span className="font-semibold text-slate-700">{category} <span className="font-normal text-slate-400">({number(items.reduce((sum,row)=>sum+Number(row.transaction_count||0),0))} tx)</span></span><b className="tabular-nums text-slate-900">{money(total)}</b></summary><div className="mt-2 space-y-2 pl-3">{items.slice(0,6).map(row => <div key={row.account} className="flex items-start justify-between gap-3 text-xs"><span className="min-w-0 text-slate-500">{row.account} <span className="text-slate-400">· {number(row.transaction_count)} tx</span></span><b className="shrink-0 tabular-nums text-slate-700">{money(row.net_cost)}</b></div>)}{items.length > 6 && <p className="text-[11px] text-slate-400">Showing 6 of {number(items.length)} accounts</p>}</div></details>})}</div></Card></div>
     <div className="monitor-grid monitor-lower"><Card title="Projects to review" note="Projects with negative gross profit in the selected month">{riskProjects.length ? <div className="monitor-risk-list">{riskProjects.map((row, index) => <div key={row.sof_base || row.sof_key || index}><span><b>{row.project_group || row.sof_label || `SOF ${row.sof_base || 'Unassigned'}`}</b><small>SOF {row.sof_base || row.sof_key || '—'}</small></span><strong>{money(row.gross_profit)}</strong></div>)}</div> : <p className="monitor-empty">No negative margin projects for this report period.</p>}</Card></div>
