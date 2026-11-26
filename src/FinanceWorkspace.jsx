@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import * as XLSX from 'xlsx'
 import { money, number, shortDate, supabase } from './lib.js'
 
 const monthName = value => value ? new Date(`${value}-01T00:00:00`).toLocaleDateString('en-PH', { month: 'short', year: 'numeric' }) : '—'
@@ -581,6 +580,7 @@ function BudgetDashboard() {
     if(range.from>range.to) {setError('Start date must be on or before end date.');return}
     setExporting(true);setError('');setExportSuccess('')
     try {
+      const XLSX = await import('xlsx')
       const exactKeys=projects.map(project=>String(project.project_key)).filter(Boolean)
       const baseKeys=projects.map(project=>String(project.matched_sof_base||'')).filter(Boolean)
       const all=[]
