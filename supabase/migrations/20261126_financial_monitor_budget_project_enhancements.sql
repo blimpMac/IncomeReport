@@ -160,7 +160,7 @@ $$;
 
 create or replace function public.income_budget_projects(p_company text default 'Greenlight Power Inc.')
 returns table(
-  project_key text, project_name text, sof_base text, division text, construction_classification text,
+  project_key text, project_name text, sof_base text, matched_sof_base text, division text, construction_classification text,
   contract_value numeric, materials_budget numeric, labor_budget numeric, overhead_budget numeric,
   allocated_budget numeric, actual_cost numeric, transaction_count bigint
 )
@@ -168,29 +168,31 @@ language sql stable
 set search_path = public
 as $$
 with refs as (
-  select distinct on (coalesce(nullif(sof_base,''),nullif(sof_key,'')))
-    coalesce(nullif(sof_base,''),nullif(sof_key,'')) as pkey,
-    project_name, materials_budget, labor_budget, overhead_budget, total_cost_budget,
-    contract_value, construction_classification
+  select distinct on (coalesce(nullif(sof_key,''),nullif(sof_base,'')))
+    coalesce(nullif(sof_key,''),nullif(sof_base,'')) as pkey,
+    project_name, sof_number, sof_base, contract_value, construction_classification,
+    materials_budget, labor_budget, overhead_budget, total_cost_budget
   from public.income_reference_projects
   where p_company = 'Greenlight Power Inc.'
-    and coalesce(nullif(sof_base,''),nullif(sof_key,'')) is not null
-  order by coalesce(nullif(sof_base,''),nullif(sof_key,'')),source_updated_at desc,id desc
-), actuals as (
-  select coalesce(nullif(sof_base,''),nullif(sof_key,'')) pkey,
-    max(division) division,
-    round(sum(case when category<>'Revenue' then debit-credit else 0 end),2) actual_cost,
-    count(*) filter(where category<>'Revenue')::bigint transaction_count
-  from public.income_all_transactions
-  where company=p_company and coalesce(nullif(sof_base,''),nullif(sof_key,'')) is not null
-  group by coalesce(nullif(sof_base,''),nullif(sof_key,''))
+    and coalesce(nullif(sof_key,''),nullif(sof_base,'')) is not null
+    and coalesce(total_cost_budget,0)>0
+  order by coalesce(nullif(sof_key,''),nullif(sof_base,'')),source_updated_at desc,id desc
 )
-select r.pkey,r.project_name,r.pkey,a.division,r.construction_classification,
+select r.pkey,r.project_name,r.sof_base,
+  case when r.sof_number = r.sof_base then r.sof_base else null end as matched_sof_base,
+  a.division,r.construction_classification,
   coalesce(r.contract_value,0),coalesce(r.materials_budget,0),coalesce(r.labor_budget,0),
-  coalesce(r.overhead_budget,0),coalesce(r.total_cost_budget,0),coalesce(a.actual_cost,0),
-  coalesce(a.transaction_count,0)
-from refs r left join actuals a using(pkey)
-where coalesce(r.total_cost_budget,0)>0
+  coalesce(r.overhead_budget,0),coalesce(r.total_cost_budget,0),
+  coalesce(a.actual_cost,0),coalesce(a.transaction_count,0)
+from refs r
+left join lateral (
+  select max(t.division) division,
+    round(sum(case when t.category<>'Revenue' then t.debit-t.credit else 0 end),2) actual_cost,
+    count(*) filter(where t.category<>'Revenue')::bigint transaction_count
+  from public.income_all_transactions t
+  where t.company=p_company
+    and (t.sof_key=r.pkey or (r.sof_number=r.sof_base and t.sof_base=r.sof_base))
+) a on true
 order by r.project_name nulls last,r.pkey;
 $$;
 
