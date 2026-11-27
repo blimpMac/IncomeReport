@@ -76,7 +76,7 @@ function MiniTrendChart({ rows, title, description, valueKey, format, stroke }) 
         <line x1={left} x2={right} y1={zeroY} y2={zeroY} stroke="#aebdc2" strokeWidth="1" strokeDasharray="4 4" />
         {plotted.length > 1 && <polyline points={line} fill="none" stroke={stroke} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
         {plotted.map(point => <circle key={point.row.month} cx={point.x} cy={point.y} r="3.4" fill={stroke} stroke="#fff" strokeWidth="1.5"><title>{`${monthName(point.row.month)} · ${formatValue(point.value)}`}</title></circle>)}
-        {plotted.map((point, index) => index % labelEvery === 0 || index === plotted.length - 1 ? <text key={point.row.month} x={point.x} y="124" textAnchor="middle" fill="#71838c" fontSize="10">{new Date(`${point.row.month}-01T00:00:00`).toLocaleDateString('en-PH', { month: 'short' })} '${point.row.month.slice(2, 4)}</text> : null)}
+        {plotted.map((point, index) => index % labelEvery === 0 || index === plotted.length - 1 ? <text key={point.row.month} x={point.x} y="124" textAnchor="middle" fill="#71838c" fontSize="10">{new Date(`${point.row.month}-01T00:00:00`).toLocaleDateString('en-PH', { month: 'short' })} '{point.row.month.slice(2, 4)}</text> : null)}
       </svg>
     </div>
   </section>
