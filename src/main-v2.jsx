@@ -19,6 +19,7 @@ import './reference-layout.css'
 import './typography-responsive.css'
 import './no-scroll-tables.css'
 import './workspace-theme.css'
+import './eworks-shell.css'
 
 function openSofPrintDialog() {
   const selectedSof = document.querySelector('main select')?.value || 'Report'
@@ -106,7 +107,7 @@ function RootRouter() {
   else if (page === 'reference') content = <RouteShell active="reference"><div className="reference-route"><ReferenceDataPage /></div></RouteShell>
   else content = <App />
 
-  return <><AppNavigation active={page} /><ResponsiveTableLabels />{content}</>
+  return <><AppNavigation active={page} /><ResponsiveTableLabels /><div id="eworks-main-content" className="eworks-route-enter" key={page} tabIndex={-1}>{content}</div></>
 }
 
 createRoot(document.getElementById('root')).render(<React.StrictMode><RootRouter /></React.StrictMode>)
