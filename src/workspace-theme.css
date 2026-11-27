@@ -253,3 +253,90 @@ body { background: var(--finance-bg); color: var(--finance-ink); }
   #root main .monitor-metric, #root main .monitor-grid > section,
   #root main table tbody tr { animation: none !important; transition: none !important; }
 }
+
+
+/* Compact Financial Monitor: one SOF table with expandable cost categories. */
+.monitor-metrics-compact {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.monitor-sof-panel {
+  min-width: 0;
+}
+.monitor-sof-search {
+  min-width: 210px;
+  max-width: 100%;
+  background: #fff;
+  color: var(--finance-ink);
+}
+.monitor-sof-search:focus {
+  outline: 2px solid rgba(8,127,104,.16);
+  border-color: #79b7a5;
+}
+.monitor-sof-table {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+}
+.monitor-sof-table th {
+  padding: 11px 12px;
+  border-bottom: 1px solid #e5edef;
+  background: #f7faf9;
+  color: #627681;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: .04em;
+  text-align: right;
+  white-space: nowrap;
+}
+.monitor-sof-table th:first-child,
+.monitor-sof-table td:first-child {
+  text-align: left;
+}
+.monitor-sof-table td {
+  padding: 12px;
+  border-bottom: 1px solid #edf1f2;
+  color: #294554;
+  text-align: right;
+  white-space: nowrap;
+}
+.monitor-sof-cost-details {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.monitor-sof-cost-details > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-width: 0;
+  padding: 11px 12px;
+  border: 1px solid #e3ece9;
+  border-radius: 9px;
+  background: #fff;
+  font-size: 12px;
+}
+.monitor-sof-cost-details span {
+  color: #657986;
+}
+.monitor-sof-cost-details b {
+  color: var(--finance-ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+@media (max-width: 900px) {
+  .monitor-metrics-compact {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 620px) {
+  .monitor-sof-panel {
+    padding: 14px;
+  }
+  .monitor-sof-search {
+    width: 100%;
+  }
+  .monitor-sof-cost-details {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
