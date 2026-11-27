@@ -46,6 +46,42 @@ function DonutChart({ rows, total, emptyLabel }) {
   </div>
 }
 
+function MiniTrendChart({ rows, title, description, valueKey, format, stroke }) {
+  const values = rows.map(row => Number(row[valueKey] || 0))
+  const latestValue = values.length ? values[values.length - 1] : 0
+  const maximum = Math.max(0, ...values)
+  const minimum = Math.min(0, ...values)
+  const range = Math.max(1, maximum - minimum)
+  const width = Math.max(420, rows.length * 54)
+  const height = 132
+  const left = 18
+  const right = width - 18
+  const top = 12
+  const bottom = 104
+  const x = index => rows.length <= 1 ? (left + right) / 2 : left + index / (rows.length - 1) * (right - left)
+  const y = value => top + (maximum - value) / range * (bottom - top)
+  const plotted = values.map((value, index) => ({ x: x(index), y: y(value), value, row: rows[index] }))
+  const line = plotted.map(point => `${point.x},${point.y}`).join(' ')
+  const zeroY = y(0)
+  const labelEvery = Math.max(1, Math.ceil(rows.length / 8))
+  const formatValue = value => format === 'percent' ? `${value.toFixed(1)}%` : money(value)
+  return <section className="monitor-mini-trend">
+    <div className="monitor-mini-trend-heading">
+      <div><h3>{title}</h3><p>{description}</p></div>
+      <strong>{formatValue(latestValue)}</strong>
+    </div>
+    <div className="monitor-mini-trend-scroll">
+      <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} role="img" aria-label={`${title}: ${plotted.map(point => `${point.row.month} ${formatValue(point.value)}`).join('; ')}`}>
+        {[top, (top + bottom) / 2, bottom].map(yPos => <line key={yPos} x1={left} x2={right} y1={yPos} y2={yPos} stroke="#e7eef0" strokeWidth="1" />)}
+        <line x1={left} x2={right} y1={zeroY} y2={zeroY} stroke="#aebdc2" strokeWidth="1" strokeDasharray="4 4" />
+        {plotted.length > 1 && <polyline points={line} fill="none" stroke={stroke} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
+        {plotted.map(point => <circle key={point.row.month} cx={point.x} cy={point.y} r="3.4" fill={stroke} stroke="#fff" strokeWidth="1.5"><title>{`${monthName(point.row.month)} · ${formatValue(point.value)}`}</title></circle>)}
+        {plotted.map((point, index) => index % labelEvery === 0 || index === plotted.length - 1 ? <text key={point.row.month} x={point.x} y="124" textAnchor="middle" fill="#71838c" fontSize="10">{new Date(`${point.row.month}-01T00:00:00`).toLocaleDateString('en-PH', { month: 'short' })} '${point.row.month.slice(2, 4)}</text> : null)}
+      </svg>
+    </div>
+  </section>
+}
+
 function useMonths(company = 'Greenlight Power Inc.') {
   const [months, setMonths] = useState([])
   const [error, setError] = useState('')
@@ -185,6 +221,10 @@ function MainDashboard() {
     <div className="monitor-grid"><Card title="Revenue and cost trend" note={year === 'all' ? 'Monthly performance across all available years' : `Monthly performance in ${year || 'selected year'}`} className="monitor-trend-card">
       {loading ? <div className="py-20 text-center text-sm text-slate-500">Loading monthly totals…</div> : visibleReports.length ? <div className="monitor-chart">{visibleReports.map(row => <div key={row.month} className="monitor-chart-month"><div className="monitor-chart-bars"><div title={`Revenue ${money(row.revenue)}`} className="monitor-bar revenue" style={{ height: `${Math.max(2, Number(row.revenue || 0) / max * 100)}%` }} /><div title={`Cost ${money(row.total_cost)}`} className="monitor-bar cost" style={{ height: `${Math.max(2, Number(row.total_cost || 0) / max * 100)}%` }} /></div><span>{year === 'all' ? monthName(row.month) : monthName(row.month).slice(0, 3)}</span></div>)}</div> : <div className="py-20 text-center text-sm text-slate-500">No reports found for this year.</div>}
       <div className="monitor-legend"><span><i className="revenue" />Revenue</span><span><i className="cost" />Cost</span></div>
+      {!loading && visibleReports.length > 0 && <div className="monitor-trend-details">
+        <MiniTrendChart rows={visibleReports} title="Gross profit trend" description="Revenue less delivery cost by month · dashed line marks zero" valueKey="gross_profit" format="money" stroke="#16876f" />
+        <MiniTrendChart rows={visibleReports} title="Gross margin trend" description="Gross profit as a percentage of revenue" valueKey="margin_pct" format="percent" stroke="#477b9a" />
+      </div>}
     </Card><Card title="Revenue by SOF" note={month ? monthName(month) : 'No report selected'} className="monitor-donut-card"><DonutChart rows={revenueBySof} total={revenueTotal} emptyLabel="No revenue by SOF for this month." /></Card><Card title="COGS & operating cost breakdown" note={month ? `${monthName(month)} · QuickBooks account detail` : 'No report selected'} className="monitor-donut-card"><DonutChart rows={costMix.map(([label, value]) => ({ label, value: Number(value || 0) }))} total={totalCost} emptyLabel="No cost breakdown for this month." /><div className="mt-5 space-y-4 border-t border-slate-100 pt-4">{['Materials','Labor','Overhead','Other'].map(category => { const items = costAccounts.filter(row => row.category === category); const total = items.reduce((sum,row) => sum + Number(row.net_cost || 0),0); return <details key={category} className="group" open={category === 'Materials' || category === 'Labor'}><summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm [&::-webkit-details-marker]:hidden"><span className="font-semibold text-slate-700">{category} <span className="font-normal text-slate-400">({number(items.reduce((sum,row)=>sum+Number(row.transaction_count||0),0))} tx)</span></span><b className="tabular-nums text-slate-900">{money(total)}</b></summary><div className="mt-2 space-y-2 pl-3">{items.slice(0,6).map(row => <div key={row.account} className="flex items-start justify-between gap-3 text-xs"><span className="min-w-0 text-slate-500">{row.account} <span className="text-slate-400">· {number(row.transaction_count)} tx</span></span><b className="shrink-0 tabular-nums text-slate-700">{money(row.net_cost)}</b></div>)}{items.length > 6 && <p className="text-[11px] text-slate-400">Showing 6 of {number(items.length)} accounts</p>}</div></details>})}</div></Card></div>
     <div className="monitor-grid monitor-lower"><Card title="Projects to review" note="Projects with negative gross profit in the selected month">{riskProjects.length ? <div className="monitor-risk-list">{riskProjects.map((row, index) => <div key={row.sof_base || row.sof_key || index}><span><b>{row.project_group || row.sof_label || `SOF ${row.sof_base || 'Unassigned'}`}</b><small>SOF {row.sof_base || row.sof_key || '—'}</small></span><strong>{money(row.gross_profit)}</strong></div>)}</div> : <p className="monitor-empty">No negative margin projects for this report period.</p>}</Card></div>
   </Shell>
