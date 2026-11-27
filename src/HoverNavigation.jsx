@@ -45,7 +45,7 @@ export default function HoverNavigation() {
     <div className="global-hover-nav-panel">
       <div className="global-hover-nav-heading">
         <b>E-WORKS</b>
-        <span>Finance workspace</span>
+        <span>Financial Operations</span>
       </div>
       <nav>
         {NAV.map(([id, label]) => <button
