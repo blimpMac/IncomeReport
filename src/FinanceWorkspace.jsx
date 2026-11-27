@@ -22,6 +22,7 @@ function Card({ title, note, children, className = '' }) {
 }
 
 const DONUT_COLORS = ['#16876f', '#397da3', '#d7973e', '#bd6670', '#7a70b5']
+const monitorMoney = value => `₱${Number(value || 0).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
 
 function DonutChart({ rows, total, emptyLabel }) {
   const positiveRows = rows.filter(row => Number(row.value) > 0)
@@ -34,12 +35,12 @@ function DonutChart({ rows, total, emptyLabel }) {
   }).join(', ')
   return <div className="monitor-donut-layout">
     {positiveTotal > 0 ? <>
-      <div className="monitor-donut" style={{ background: `conic-gradient(${gradient})` }} aria-label={`${money(total)} total`} role="img">
-        <div className="monitor-donut-hole"><strong>{money(total)}</strong><span>Total</span></div>
+      <div className="monitor-donut" style={{ background: `conic-gradient(${gradient})` }} aria-label={`${monitorMoney(total)} total`} role="img">
+        <div className="monitor-donut-hole"><strong>{monitorMoney(total)}</strong><span>Total</span></div>
       </div>
       <div className="monitor-donut-legend">{positiveRows.map((row, index) => <div key={row.label}>
         <span><i style={{ background: DONUT_COLORS[index % DONUT_COLORS.length] }} />{row.label}</span>
-        <b>{money(row.value)}</b>
+        <b>{monitorMoney(row.value)}</b>
         <small>{(Number(row.value) / positiveTotal * 100).toFixed(0)}%</small>
       </div>)}</div>
     </> : <p className="monitor-empty">{emptyLabel}</p>}
@@ -62,7 +63,7 @@ function MiniTrendChart({ rows, title, description, valueKey, format, stroke }) 
   const y = value => top + (maximum - value) / range * (bottom - top)
   const plotted = values.map((value, index) => ({ x: x(index), y: y(value), value, row: rows[index] }))
   const line = plotted.map(point => `${point.x},${point.y}`).join(' ')
-  const formatValue = value => format === 'percent' ? `${value.toFixed(1)}%` : money(value)
+  const formatValue = value => format === 'percent' ? `${value.toFixed(1)}%` : monitorMoney(value)
   const ticks = [maximum, maximum - range / 2, minimum]
   const labelEvery = Math.max(1, Math.ceil(rows.length / 9))
   return <section className="monitor-mini-trend">
@@ -149,6 +150,7 @@ function MainDashboard() {
   const selectedMonths = useMemo(() => [...yearMonths].reverse(), [yearMonths])
   const [reports, setReports] = useState([])
   const [showAllSofs, setShowAllSofs] = useState(false)
+  const [showAllCostSofs, setShowAllCostSofs] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   useEffect(() => {
@@ -190,7 +192,6 @@ function MainDashboard() {
   const selected = annualTotal || reports.find(row => row.month === month)
   const max = Math.max(1, ...visibleReports.flatMap(row => [Number(row.revenue || 0), Number(row.total_cost || 0)]))
   const problem = error || monthsError
-  const costMix = [['Materials', selected?.materials], ['Labor', selected?.labor], ['Overhead', selected?.overhead], ['Other', selected?.other_cost]]
   const totalCost = Number(selected?.total_cost || 0)
   const revenueTotal = Number(selected?.revenue || 0)
   const selectedSofRows = useMemo(() => {
@@ -212,21 +213,8 @@ function MainDashboard() {
       return row
     }).sort((a, b) => b.revenue - a.revenue)
   }, [month, visibleReports, reports])
-  const selectedCostAccounts = useMemo(() => {
-    const source = month === '__year_total__'
-      ? visibleReports.flatMap(row => row.cost_accounts || [])
-      : (reports.find(row => row.month === month)?.cost_accounts || [])
-    const grouped = new Map()
-    for (const row of source) {
-      const key = `${row.category || 'Other'}|${row.account || 'Unspecified'}`
-      const current = grouped.get(key) || { category: row.category || 'Other', account: row.account || 'Unspecified', net_cost: 0, transaction_count: 0 }
-      current.net_cost += Number(row.net_cost || 0)
-      current.transaction_count += Number(row.transaction_count || 0)
-      grouped.set(key, current)
-    }
-    return [...grouped.values()].sort((a, b) => Math.abs(b.net_cost) - Math.abs(a.net_cost))
-  }, [month, visibleReports, reports])
   const revenueSofRows = selectedSofRows.filter(row => Number(row.revenue || 0) > 0)
+  const costSofRows = selectedSofRows.filter(row => Number(row.total_cost || 0) > 0).sort((a, b) => b.total_cost - a.total_cost)
   const revenueBySof = useMemo(() => {
     const top = revenueSofRows.slice(0, 4).map(row => ({ label: row.sof_label || row.sof_base || 'Unassigned', value: Number(row.revenue || 0) }))
     const remainder = revenueSofRows.slice(4).reduce((sum, row) => sum + Number(row.revenue || 0), 0)
@@ -240,15 +228,15 @@ function MainDashboard() {
   return <Shell><div className="monitor-heading"><div><p className="monitor-eyebrow">FINANCIAL OPERATIONS</p><h1>Financial monitor</h1><p>Track revenue, delivery costs, and project margin by reporting period.</p></div><div className="monitor-period"><label>Year<select value={year} onChange={event => setYear(event.target.value)}><option value="all">All years</option>{years.map(value => <option key={value} value={value}>{value}</option>)}</select></label><label>Period<select value={month} onChange={event => setMonth(event.target.value)}><option value="__year_total__">{year === 'all' ? 'All years total' : `${year} total`}</option>{yearMonths.map(value => <option key={value} value={value}>{monthName(value)}</option>)}</select></label><label>Category<select value={monitorCategory} onChange={event => setMonitorCategory(event.target.value)}><option value="all">All categories</option><option value="Eworks">Eworks</option><option value="Supply">Supply</option><option value="Service">Service</option><option value="Civil">Civil</option></select></label></div></div>
     {problem && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{problem}</div>}
     <div className="monitor-metrics">
-      <Metric label="Recognized revenue" value={selected ? money(selected.revenue) : '—'} note={month === '__year_total__' ? (year === 'all' ? 'All available years' : `${year} full-year total`) : month ? monthName(month) : 'No reports available'} tone="green" />
-      <Metric label="Total delivery cost" value={selected ? money(selected.total_cost) : '—'} note="Includes materials, labor, overhead and other costs" tone="blue" />
-      <Metric label="Gross profit / (loss)" value={selected ? money(selected.gross_profit) : '—'} note={selected ? `${Number(selected.margin_pct || 0).toFixed(1)}% gross margin` : 'No report data'} tone={Number(selected?.gross_profit || 0) < 0 ? 'red' : 'green'} />
+      <Metric label="Recognized revenue" value={selected ? monitorMoney(selected.revenue) : '—'} note={month === '__year_total__' ? (year === 'all' ? 'All available years' : `${year} full-year total`) : month ? monthName(month) : 'No reports available'} tone="green" />
+      <Metric label="Total delivery cost" value={selected ? monitorMoney(selected.total_cost) : '—'} note="Includes materials, labor, overhead and other costs" tone="blue" />
+      <Metric label="Gross profit / (loss)" value={selected ? monitorMoney(selected.gross_profit) : '—'} note={selected ? `${Number(selected.margin_pct || 0).toFixed(1)}% gross margin` : 'No report data'} tone={Number(selected?.gross_profit || 0) < 0 ? 'red' : 'green'} />
       <Metric label="Transactions in period" value={selected ? number(selected.transaction_count) : '—'} note={`${number(selected?.unassigned_count)} missing SOF assignment`} tone={Number(selected?.unassigned_count || 0) ? 'red' : 'blue'} />
     </div>
     <div className="monitor-grid"><Card title="Revenue and cost trend" note={year === 'all' ? 'Monthly performance across all available years' : `Monthly performance in ${year || 'selected year'}`} className="monitor-trend-card">
       {loading ? <div className="py-20 text-center text-sm text-slate-500">Loading monthly totals…</div> : visibleReports.length ? <>
         <div className="monitor-chart">{visibleReports.map(row => <div key={row.month} className="monitor-chart-month">
-          <div className="monitor-chart-bars"><div aria-label={`Revenue: ${money(row.revenue)}`} title={`Revenue: ${money(row.revenue)}`} className="monitor-bar revenue" style={{ height: `${Math.max(2, Number(row.revenue || 0) / max * 100)}%` }} /><div aria-label={`Delivery cost: ${money(row.total_cost)}`} title={`Delivery cost: ${money(row.total_cost)}`} className="monitor-bar cost" style={{ height: `${Math.max(2, Number(row.total_cost || 0) / max * 100)}%` }} /></div>
+          <div className="monitor-chart-bars"><div aria-label={`Revenue: ${monitorMoney(row.revenue)}`} title={`Revenue: ${monitorMoney(row.revenue)}`} className="monitor-bar revenue" style={{ height: `${Math.max(2, Number(row.revenue || 0) / max * 100)}%` }} /><div aria-label={`Delivery cost: ${monitorMoney(row.total_cost)}`} title={`Delivery cost: ${monitorMoney(row.total_cost)}`} className="monitor-bar cost" style={{ height: `${Math.max(2, Number(row.total_cost || 0) / max * 100)}%` }} /></div>
           <span>{monthName(row.month)}</span>
         </div>)}</div>
       </> : <div className="py-20 text-center text-sm text-slate-500">No reports found for this year.</div>}
@@ -257,8 +245,25 @@ function MainDashboard() {
         <MiniTrendChart rows={visibleReports} title="Gross profit trend" description="Revenue less delivery cost by month · dashed line marks zero" valueKey="gross_profit" format="money" stroke="#16876f" />
         <MiniTrendChart rows={visibleReports} title="Gross margin trend" description="Gross profit as a percentage of revenue" valueKey="margin_pct" format="percent" stroke="#477b9a" />
       </div>}
-    </Card><Card title="Revenue by SOF" note={`${selectedPeriodLabel} · ${number(revenueSofRows.length)} SOFs with revenue`} className="monitor-donut-card">{loading ? <p className="monitor-empty">Loading SOF revenue…</p> : <DonutChart rows={revenueBySof} total={revenueTotal} emptyLabel="No revenue records for this period." />}{!loading && revenueSofRows.length > 0 && <div className="mt-4 border-t border-slate-100 pt-3"><div className="mb-2 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-3 text-[10px] font-semibold uppercase tracking-wide text-slate-400"><span>SOF / project</span><span>Revenue</span><span>Share</span></div>{(showAllSofs ? revenueSofRows : revenueSofRows.slice(0, 8)).map(row => <div key={row.sof_base} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-t border-slate-100 py-2 text-xs"><span className="min-w-0 truncate text-slate-600" title={row.sof_label}>{row.sof_label || row.sof_base}</span><b className="tabular-nums text-slate-800">{money(row.revenue)}</b><span className="w-10 text-right tabular-nums text-slate-500">{revenueTotal ? `${(Number(row.revenue) / revenueTotal * 100).toFixed(1)}%` : '—'}</span></div>)}{revenueSofRows.length > 8 && <button type="button" onClick={() => setShowAllSofs(value => !value)} className="mt-2 text-xs font-semibold text-emerald-700 hover:text-emerald-900">{showAllSofs ? 'Show fewer SOFs' : `Show all ${number(revenueSofRows.length)} SOFs`}</button>}</div>}</Card><Card title="Cost breakdown" note={`${selectedPeriodLabel} · QuickBooks accounts`} className="monitor-donut-card"><DonutChart rows={costMix.map(([label, value]) => ({ label, value: Number(value || 0) }))} total={totalCost} emptyLabel="No cost breakdown for this period." /><div className="mt-5 space-y-4 border-t border-slate-100 pt-4">{['Materials','Labor','Overhead','Other'].map(category => { const items = selectedCostAccounts.filter(row => row.category === category); const total = items.reduce((sum,row) => sum + Number(row.net_cost || 0),0); return <details key={category} className="group" open={category === 'Materials' || category === 'Labor'}><summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm [&::-webkit-details-marker]:hidden"><span className="font-semibold text-slate-700">{category} <span className="font-normal text-slate-400">({number(items.reduce((sum,row)=>sum+Number(row.transaction_count||0),0))} tx)</span></span><b className="tabular-nums text-slate-900">{money(total)}</b></summary><div className="mt-2 space-y-2 pl-3">{items.slice(0,6).map(row => <div key={row.account} className="flex items-start justify-between gap-3 text-xs"><span className="min-w-0 text-slate-500">{row.account} <span className="text-slate-400">· {number(row.transaction_count)} tx</span></span><b className="shrink-0 tabular-nums text-slate-700">{money(row.net_cost)}</b></div>)}{items.length > 6 && <p className="text-[11px] text-slate-400">Showing 6 of {number(items.length)} accounts</p>}</div></details>})}</div></Card></div>
-    <div className="monitor-grid monitor-lower"><Card title="Projects to review" note={`Negative gross profit · ${selectedPeriodLabel}`}>{riskProjects.length ? <div className="monitor-risk-list">{riskProjects.map((row, index) => <div key={row.sof_base || row.sof_key || index}><span><b>{row.project_group || row.sof_label || `SOF ${row.sof_base || 'Unassigned'}`}</b><small>SOF {row.sof_base || row.sof_key || '—'}</small></span><strong>{money(row.gross_profit)}</strong></div>)}</div> : <p className="monitor-empty">No negative margin projects for this report period.</p>}</Card></div>
+    </Card><Card title="Revenue by SOF" note={`${selectedPeriodLabel} · ${number(revenueSofRows.length)} SOFs with revenue`} className="monitor-donut-card">{loading ? <p className="monitor-empty">Loading SOF revenue…</p> : <DonutChart rows={revenueBySof} total={revenueTotal} emptyLabel="No revenue records for this period." />}{!loading && revenueSofRows.length > 0 && <div className="mt-4 border-t border-slate-100 pt-3"><div className="mb-2 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-3 text-[10px] font-semibold uppercase tracking-wide text-slate-400"><span>SOF / project</span><span>Revenue</span><span>Share</span></div>{(showAllSofs ? revenueSofRows : revenueSofRows.slice(0, 8)).map(row => <div key={row.sof_base} className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-t border-slate-100 py-2 text-xs"><span className="min-w-0 truncate text-slate-600" title={row.sof_label}>{row.sof_label || row.sof_base}</span><b className="tabular-nums text-slate-800">{monitorMoney(row.revenue)}</b><span className="w-10 text-right tabular-nums text-slate-500">{revenueTotal ? `${(Number(row.revenue) / revenueTotal * 100).toFixed(1)}%` : '—'}</span></div>)}{revenueSofRows.length > 8 && <button type="button" onClick={() => setShowAllSofs(value => !value)} className="mt-2 text-xs font-semibold text-emerald-700 hover:text-emerald-900">{showAllSofs ? 'Show fewer SOFs' : `Show all ${number(revenueSofRows.length)} SOFs`}</button>}</div>}</Card><Card title="Cost breakdown by SOF" note={`${selectedPeriodLabel} · each row is one SOF / project`} className="monitor-donut-card">
+      <div className="mb-4 flex flex-wrap gap-x-4 gap-y-2 text-[11px] text-slate-600">{[['Materials','#16876f'],['Labor','#397da3'],['Overhead','#d7973e'],['Other','#bd6670']].map(([label,color])=><span key={label} className="inline-flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-sm" style={{background:color}} />{label}</span>)}</div>
+      {loading ? <p className="monitor-empty">Loading SOF cost breakdown…</p> : costSofRows.length ? <>
+        <div className="space-y-3">{costSofRows.slice(0,6).map(row=>{const total=Number(row.total_cost||0);return <div key={row.sof_base}>
+          <div className="mb-1 flex items-start justify-between gap-3 text-xs"><span className="min-w-0 font-semibold text-slate-700" title={row.sof_label}>{row.sof_label||`SOF ${row.sof_base}`}</span><b className="shrink-0 tabular-nums text-slate-800">{monitorMoney(total)}</b></div>
+          <div className="flex h-3 overflow-hidden rounded-full bg-slate-100" title={`Materials ${monitorMoney(row.materials)} · Labor ${monitorMoney(row.labor)} · Overhead ${monitorMoney(row.overhead)} · Other ${monitorMoney(row.other_cost)}`}>{[['materials','#16876f'],['labor','#397da3'],['overhead','#d7973e'],['other_cost','#bd6670']].map(([key,color])=>Number(row[key]||0)>0?<span key={key} style={{width:`${Number(row[key]||0)/total*100}%`,background:color}} />:null)}</div>
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500"><span>Materials {monitorMoney(row.materials)}</span><span>Labor {monitorMoney(row.labor)}</span><span>Overhead {monitorMoney(row.overhead)}</span><span>Other {monitorMoney(row.other_cost)}</span></div>
+        </div>})}</div>
+        <div className="mt-5 overflow-x-auto border-t border-slate-100 pt-3"><table className="w-full min-w-[850px] text-right text-[11px]">
+          <thead className="text-slate-500"><tr><th className="px-2 py-2 text-left">SOF / project</th><th className="px-2 py-2">Materials</th><th className="px-2 py-2">Labor</th><th className="px-2 py-2">Overhead</th><th className="px-2 py-2">Other</th><th className="px-2 py-2">Total cost</th><th className="px-2 py-2">Gross profit</th><th className="px-2 py-2">Margin</th></tr></thead>
+          <tbody className="divide-y divide-slate-100">{(showAllCostSofs?costSofRows:costSofRows.slice(0,8)).map(row=><tr key={row.sof_base}>
+            <td className="max-w-[190px] truncate px-2 py-2 text-left font-medium text-slate-700" title={row.sof_label}>{row.sof_label||`SOF ${row.sof_base}`}</td>
+            <td className="px-2 py-2 tabular-nums">{monitorMoney(row.materials)}</td><td className="px-2 py-2 tabular-nums">{monitorMoney(row.labor)}</td><td className="px-2 py-2 tabular-nums">{monitorMoney(row.overhead)}</td><td className="px-2 py-2 tabular-nums">{monitorMoney(row.other_cost)}</td>
+            <td className="px-2 py-2 font-semibold tabular-nums">{monitorMoney(row.total_cost)}</td><td className={`px-2 py-2 font-semibold tabular-nums ${row.gross_profit<0?'text-rose-600':'text-emerald-700'}`}>{monitorMoney(row.gross_profit)}</td><td className="px-2 py-2 tabular-nums">{row.margin_pct==null?'—':`${Number(row.margin_pct).toFixed(1)}%`}</td>
+          </tr>)}</tbody></table></div>
+        {costSofRows.length>8&&<button type="button" onClick={()=>setShowAllCostSofs(value=>!value)} className="mt-3 text-xs font-semibold text-emerald-700 hover:text-emerald-900">{showAllCostSofs?'Show fewer projects':`Show all ${number(costSofRows.length)} SOFs`}</button>}
+      </> : <p className="monitor-empty">No SOF-level costs were found for this period.</p>}
+    </Card></div>
+    <div className="monitor-grid monitor-lower"><Card title="Projects to review" note={`Negative gross profit · ${selectedPeriodLabel}`}>{riskProjects.length ? <div className="monitor-risk-list">{riskProjects.map((row, index) => <div key={row.sof_base || row.sof_key || index}><span><b>{row.project_group || row.sof_label || `SOF ${row.sof_base || 'Unassigned'}`}</b><small>SOF {row.sof_base || row.sof_key || '—'}</small></span><strong>{monitorMoney(row.gross_profit)}</strong></div>)}</div> : <p className="monitor-empty">No negative margin projects for this report period.</p>}</Card></div>
   </Shell>
 }
 
