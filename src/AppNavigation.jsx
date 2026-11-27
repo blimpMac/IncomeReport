@@ -60,10 +60,10 @@ export default function AppNavigation({ active }) {
             alt="Greenlight Power"
             onError={() => setLogoFailed(true)}
           />}
-        <span className="app-brand-copy"><small>Finance workspace</small></span>
+        <span className="app-brand-copy"><small>Financial Operations</small></span>
       </div>
       <div className="app-topbar-actions">
-        <span className="app-current-section">{NAV.find(item => item.id === active)?.label || 'Finance workspace'}</span>
+        <span className="app-current-section">{NAV.find(item => item.id === active)?.label || 'Financial Operations'}</span>
       </div>
       <nav id="app-navigation-menu" className={`app-navigation-menu${open ? ' is-open' : ''}`} aria-label="Main navigation">
         {['Overview', 'Reports', 'Data'].map(group => <div className="app-navigation-group" key={group}>
