@@ -52,36 +52,40 @@ function MiniTrendChart({ rows, title, description, valueKey, format, stroke }) 
   const maximum = Math.max(0, ...values)
   const minimum = Math.min(0, ...values)
   const range = Math.max(1, maximum - minimum)
-  const width = Math.max(420, rows.length * 54)
-  const height = 132
-  const left = 18
-  const right = width - 18
-  const top = 12
-  const bottom = 104
+  const width = Math.max(520, rows.length * 66)
+  const height = 176
+  const left = 76
+  const right = width - 20
+  const top = 18
+  const bottom = 132
   const x = index => rows.length <= 1 ? (left + right) / 2 : left + index / (rows.length - 1) * (right - left)
   const y = value => top + (maximum - value) / range * (bottom - top)
   const plotted = values.map((value, index) => ({ x: x(index), y: y(value), value, row: rows[index] }))
   const line = plotted.map(point => `${point.x},${point.y}`).join(' ')
-  const zeroY = y(0)
-  const labelEvery = Math.max(1, Math.ceil(rows.length / 8))
   const formatValue = value => format === 'percent' ? `${value.toFixed(1)}%` : money(value)
+  const ticks = [maximum, maximum - range / 2, minimum]
+  const labelEvery = Math.max(1, Math.ceil(rows.length / 9))
   return <section className="monitor-mini-trend">
     <div className="monitor-mini-trend-heading">
       <div><h3>{title}</h3><p>{description}</p></div>
       <strong>{formatValue(latestValue)}</strong>
     </div>
     <div className="monitor-mini-trend-scroll">
-      <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} role="img" aria-label={`${title}: ${plotted.map(point => `${point.row.month} ${formatValue(point.value)}`).join('; ')}`}>
-        {[top, (top + bottom) / 2, bottom].map(yPos => <line key={yPos} x1={left} x2={right} y1={yPos} y2={yPos} stroke="#e7eef0" strokeWidth="1" />)}
-        <line x1={left} x2={right} y1={zeroY} y2={zeroY} stroke="#aebdc2" strokeWidth="1" strokeDasharray="4 4" />
-        {plotted.length > 1 && <polyline points={line} fill="none" stroke={stroke} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />}
-        {plotted.map(point => <circle key={point.row.month} cx={point.x} cy={point.y} r="3.4" fill={stroke} stroke="#fff" strokeWidth="1.5"><title>{`${monthName(point.row.month)} · ${formatValue(point.value)}`}</title></circle>)}
-        {plotted.map((point, index) => index % labelEvery === 0 || index === plotted.length - 1 ? <text key={point.row.month} x={point.x} y="124" textAnchor="middle" fill="#71838c" fontSize="10">{new Date(`${point.row.month}-01T00:00:00`).toLocaleDateString('en-PH', { month: 'short' })} '{point.row.month.slice(2, 4)}</text> : null)}
+      <svg viewBox={`0 0 ${width} ${height}`} width={width} height={height} role="img" aria-label={`${title}. Vertical axis: ${format === 'percent' ? 'gross margin percentage' : 'gross profit in Philippine pesos'}. Horizontal axis: reporting month. ${plotted.map(point => `${monthName(point.row.month)}: ${formatValue(point.value)}`).join('; ')}`}>
+        {ticks.map((tick, index) => <g key={index}>
+          <line x1={left} x2={right} y1={y(tick)} y2={y(tick)} stroke="#e7eef0" strokeWidth="1" />
+          <text x={left - 9} y={y(tick) + 3} textAnchor="end" fill="#71838c" fontSize="10">{formatValue(tick)}</text>
+        </g>)}
+        <line x1={left} x2={right} y1={y(0)} y2={y(0)} stroke="#aebdc2" strokeWidth="1.2" strokeDasharray="4 4" />
+        {plotted.length > 1 && <polyline points={line} fill="none" stroke={stroke} strokeWidth="2.8" strokeLinecap="round" strokeLinejoin="round" />}
+        {plotted.map(point => <g key={point.row.month}><circle cx={point.x} cy={point.y} r="4" fill={stroke} stroke="#fff" strokeWidth="1.5"><title>{`${monthName(point.row.month)} · ${formatValue(point.value)}`}</title></circle></g>)}
+        {plotted.map((point, index) => index % labelEvery === 0 || index === plotted.length - 1 ? <text key={point.row.month} x={point.x} y="153" textAnchor="middle" fill="#52636c" fontSize="10" fontWeight="600">{new Date(`${point.row.month}-01T00:00:00`).toLocaleDateString('en-PH', { month: 'short' })} '${point.row.month.slice(2, 4)}</text> : null)}
+        <text x={(left + right) / 2} y="171" textAnchor="middle" fill="#71838c" fontSize="9">REPORTING MONTH</text>
       </svg>
     </div>
+    <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-slate-400">{format === 'percent' ? 'Vertical axis: gross margin (%)' : 'Vertical axis: gross profit (PHP)'} · Horizontal axis: month</p>
   </section>
 }
-
 function useMonths(company = 'Greenlight Power Inc.') {
   const [months, setMonths] = useState([])
   const [error, setError] = useState('')
@@ -219,8 +223,17 @@ function MainDashboard() {
       <Metric label="Transactions" value={selected ? number(selected.transaction_count) : '—'} note={`${number(selected?.unassigned_count)} without SOF mapping`} tone={Number(selected?.unassigned_count || 0) ? 'red' : 'blue'} />
     </div>
     <div className="monitor-grid"><Card title="Revenue and cost trend" note={year === 'all' ? 'Monthly performance across all available years' : `Monthly performance in ${year || 'selected year'}`} className="monitor-trend-card">
-      {loading ? <div className="py-20 text-center text-sm text-slate-500">Loading monthly totals…</div> : visibleReports.length ? <div className="monitor-chart">{visibleReports.map(row => <div key={row.month} className="monitor-chart-month"><div className="monitor-chart-bars"><div title={`Revenue ${money(row.revenue)}`} className="monitor-bar revenue" style={{ height: `${Math.max(2, Number(row.revenue || 0) / max * 100)}%` }} /><div title={`Cost ${money(row.total_cost)}`} className="monitor-bar cost" style={{ height: `${Math.max(2, Number(row.total_cost || 0) / max * 100)}%` }} /></div><span>{year === 'all' ? monthName(row.month) : monthName(row.month).slice(0, 3)}</span></div>)}</div> : <div className="py-20 text-center text-sm text-slate-500">No reports found for this year.</div>}
-      <div className="monitor-legend"><span><i className="revenue" />Revenue</span><span><i className="cost" />Cost</span></div>
+      {loading ? <div className="py-20 text-center text-sm text-slate-500">Loading monthly totals…</div> : visibleReports.length ? <>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500"><span><b className="text-slate-700">Chart type:</b> grouped monthly comparison</span><span><b className="text-slate-700">Currency:</b> Philippine peso (PHP)</span></div>
+        <div className="monitor-chart-axis-labels"><span>AMOUNT (PHP)</span><span>MONTHLY REPORTING PERIOD</span></div>
+        <div className="monitor-chart">{visibleReports.map(row => <div key={row.month} className="monitor-chart-month">
+          <div className="monitor-chart-value-labels"><small title={`Revenue: ${money(row.revenue)}`}>R {money(row.revenue)}</small><small title={`Cost: ${money(row.total_cost)}`}>C {money(row.total_cost)}</small></div>
+          <div className="monitor-chart-bars"><div aria-label={`Revenue: ${money(row.revenue)}`} title={`Revenue: ${money(row.revenue)}`} className="monitor-bar revenue" style={{ height: `${Math.max(2, Number(row.revenue || 0) / max * 100)}%` }} /><div aria-label={`Delivery cost: ${money(row.total_cost)}`} title={`Delivery cost: ${money(row.total_cost)}`} className="monitor-bar cost" style={{ height: `${Math.max(2, Number(row.total_cost || 0) / max * 100)}%` }} /></div>
+          <span>{monthName(row.month)}</span>
+        </div>)}</div>
+        <p className="mt-2 text-[10px] text-slate-400">Each month shows revenue and delivery cost side by side. Hover over a bar to see its exact amount.</p>
+      </> : <div className="py-20 text-center text-sm text-slate-500">No reports found for this year.</div>}
+      <div className="monitor-legend"><span><i className="revenue" />Recognized revenue (PHP)</span><span><i className="cost" />Total delivery cost (PHP)</span></div>
       {!loading && visibleReports.length > 0 && <div className="monitor-trend-details">
         <MiniTrendChart rows={visibleReports} title="Gross profit trend" description="Revenue less delivery cost by month · dashed line marks zero" valueKey="gross_profit" format="money" stroke="#16876f" />
         <MiniTrendChart rows={visibleReports} title="Gross margin trend" description="Gross profit as a percentage of revenue" valueKey="margin_pct" format="percent" stroke="#477b9a" />
