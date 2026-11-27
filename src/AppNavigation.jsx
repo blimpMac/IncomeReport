@@ -145,7 +145,7 @@ export default function AppNavigation({ active }) {
         </button>
       </div>
 
-      <nav className="eworks-sidebar-navigation" aria-label="Main navigation">
+      <nav id="eworks-main-navigation" className="eworks-sidebar-navigation" aria-label="Main navigation">
         {NAV_GROUPS.map(group => <section className="eworks-nav-group" key={group.label}>
           <p className="eworks-nav-group-label">{group.label}</p>
           <div className="eworks-nav-items">
