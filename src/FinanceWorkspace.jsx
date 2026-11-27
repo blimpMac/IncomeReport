@@ -464,16 +464,8 @@ function ProjectAnalysis() {
   const [coverage, setCoverage] = useState('all')
   const [selectedMonth, setSelectedMonth] = useState(() => dateInputValue().slice(0, 7))
   const [projects, setProjects] = useState([])
-  const [compareA, setCompareA] = useState('')
-  const [compareB, setCompareB] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const comparisonProjects = useMemo(() => [projects.find(project => project.key === compareA), projects.find(project => project.key === compareB)], [projects, compareA, compareB])
-  useEffect(() => {
-    if (!projects.length) return
-    if (!projects.some(project => project.key === compareA)) setCompareA(projects[0].key)
-    if (!projects.some(project => project.key === compareB)) setCompareB(projects.find(project => project.key !== compareA)?.key || projects[0].key)
-  }, [projects, compareA, compareB])
   const startDate = useMemo(() => coverage === 'month' ? `${selectedMonth}-01` : null, [coverage, selectedMonth])
   const endDate = useMemo(() => {
     if (coverage !== 'month' || !selectedMonth) return null
@@ -587,13 +579,6 @@ function ProjectAnalysis() {
       <Metric label="Income" value={money(totals.revenue)} note={rangeLabel} tone="green" />
       <Metric label="Net income" value={money(totals.revenue - totals.actual)} note="Income less actual project cost" tone={totals.revenue - totals.actual < 0 ? 'red' : 'green'} />
     </div>
-    {!loading && projects.length > 0 && <Card title="Project-to-project comparison" note={`Compare revenue, actual cost, budget usage and profitability · ${rangeLabel}`}>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <label className="text-xs font-semibold text-slate-600">Project A<select value={compareA} onChange={event => setCompareA(event.target.value)} className="mt-1 block w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm">{projects.map(project => <option key={project.key} value={project.key}>{project.label} · {project.key}</option>)}</select></label>
-        <label className="text-xs font-semibold text-slate-600">Project B<select value={compareB} onChange={event => setCompareB(event.target.value)} className="mt-1 block w-full min-w-0 rounded-lg border border-slate-300 px-3 py-2 text-sm">{projects.map(project => <option key={project.key} value={project.key}>{project.label} · {project.key}</option>)}</select></label>
-      </div>
-      {comparisonProjects[0] && comparisonProjects[1] && <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[560px] text-sm"><thead><tr className="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-500"><th className="px-3 py-2">Measure</th><th className="px-3 py-2 text-right">{comparisonProjects[0].label}</th><th className="px-3 py-2 text-right">{comparisonProjects[1].label}</th><th className="px-3 py-2 text-right">Difference (A − B)</th></tr></thead><tbody className="divide-y divide-slate-100">{[{label:'Revenue',key:'revenue'},{label:'Actual project cost',key:'actual'},{label:'Allocated budget',key:'budget'},{label:'Budget remaining',key:'variance'},{label:'Gross profit',key:'grossProfit'}].map(metric => {const a=Number(comparisonProjects[0][metric.key]||0);const b=Number(comparisonProjects[1][metric.key]||0);return <tr key={metric.key}><td className="px-3 py-2 font-medium text-slate-700">{metric.label}</td><td className="px-3 py-2 text-right tabular-nums">{money(a)}</td><td className="px-3 py-2 text-right tabular-nums">{money(b)}</td><td className={`px-3 py-2 text-right font-semibold tabular-nums ${a-b<0?'text-rose-700':'text-emerald-700'}`}>{money(a-b)}</td></tr>})}<tr><td className="px-3 py-2 font-medium text-slate-700">Profit margin</td><td className="px-3 py-2 text-right tabular-nums">{comparisonProjects[0].margin == null ? '—' : `${comparisonProjects[0].margin.toFixed(1)}%`}</td><td className="px-3 py-2 text-right tabular-nums">{comparisonProjects[1].margin == null ? '—' : `${comparisonProjects[1].margin.toFixed(1)}%`}</td><td className="px-3 py-2 text-right tabular-nums">{comparisonProjects[0].margin == null || comparisonProjects[1].margin == null ? '—' : `${(comparisonProjects[0].margin-comparisonProjects[1].margin).toFixed(1)} pp`}</td></tr></tbody></table></div>}
-    </Card>}
     {loading ? <div className="rounded-xl border border-emerald-100 bg-white p-8 text-center text-sm text-slate-500">Loading project activity…</div> : <div className="space-y-4">
       {projects.length > 0 && <Card title="Budget utilization" note={`Actual costs against mapped project budgets · ${rangeLabel}`}>
         <ProjectBars budget={totals.budget} actual={totals.actual} />
