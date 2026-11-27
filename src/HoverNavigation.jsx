@@ -5,7 +5,6 @@ const NAV = [
   ['upload', 'Data Upload'],
   ['monthly', 'Monthly Report'],
   ['sof', 'SOF Analysis'],
-  ['costcompare', 'Cost Comparison'],
   ['transactions', 'Transactions'],
   ['reference', 'Reference Data'],
   ['worksheets', 'QB Worksheets'],
