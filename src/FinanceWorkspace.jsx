@@ -221,7 +221,7 @@ function MainDashboard() {
   return <Shell>
     <div className="monitor-heading">
       <div>
-        <p className="monitor-eyebrow">FINANCIAL OPERATIONS</p>
+        
         <h1>Financial monitor</h1>
         <p>Revenue, costs, and profitability by SOF.</p>
       </div>
@@ -783,7 +783,7 @@ function BudgetDashboard() {
 
   return <Shell>
     <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div><p className="monitor-eyebrow">FINANCIAL OPERATIONS</p><h1 className="text-2xl font-semibold text-slate-950">Budget Dashboard</h1><p className="mt-1 text-sm text-slate-500">Monitor allocated project budgets against actual QuickBooks costs.</p><p className="mt-1 text-xs text-slate-400">Budget source: Greenlight Power Inc. project reference data.</p></div>
+      <div><h1 className="text-2xl font-semibold text-slate-950">Budget Dashboard</h1><p className="mt-1 text-sm text-slate-500">Monitor allocated project budgets against actual QuickBooks costs.</p><p className="mt-1 text-xs text-slate-400">Budget source: Greenlight Power Inc. project reference data.</p></div>
     </div>
     {error&&<div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
     {exportSuccess&&<div role="status" className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{exportSuccess}</div>}
@@ -992,7 +992,7 @@ function TransactionDetails() {
   return <Shell page="transactions">
     <div className="mb-6 flex flex-col gap-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div><p className="monitor-eyebrow">FINANCIAL OPERATIONS</p><h1 className="text-2xl font-semibold text-slate-950">All Transactions</h1><p className="mt-1 text-sm text-slate-500">Company-separated QuickBooks ledger. Filters are applied in the database before rows are returned.</p></div>
+        <div><h1 className="text-2xl font-semibold text-slate-950">All Transactions</h1><p className="mt-1 text-sm text-slate-500">Company-separated QuickBooks ledger. Filters are applied in the database before rows are returned.</p></div>
         <a href="#/dashboard" className="text-sm font-semibold text-emerald-700 hover:text-emerald-900">← Back to Financial Monitor</a>
       </div>
       <div className="mb-4 rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
