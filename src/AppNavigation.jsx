@@ -151,8 +151,8 @@ export default function AppNavigation({ active }) {
           <div className="eworks-nav-items">
             {group.items.map(item => <a
               key={item.id}
-              href={\`#/\${item.id}\`}
-              className={\`eworks-nav-link\${active === item.id ? ' is-active' : ''}\`}
+              href={`#/${item.id}`}
+              className={`eworks-nav-link${active === item.id ? ' is-active' : ''}`}
               aria-current={active === item.id ? 'page' : undefined}
               title={expanded || mobileOpen ? item.label : item.description}
               onClick={closeMobile}
